@@ -1,12 +1,12 @@
 ---
-description: URL・PDF・動画等からテイストを抽出し theme.md / design-system.md を更新する（/project:extract-taste）
+description: URL・PDF・動画等からテイストを抽出しリポジトリ直下の DESIGN.md を更新する（/project:extract-taste）
 ---
 
 # /project:extract-taste
 
 ## 目的
 
-参照素材（**URL・PDF・動画・画像・既存コード**）から UI テイストを抽出し、`docs/uiux/theme.md` と `docs/uiux/design-system.md` を同期更新する。
+参照素材（**URL・PDF・動画・画像・既存コード**）から UI テイストを抽出し、リポジトリ直下の **`DESIGN.md`** に反映する（[Stitch 系 DESIGN.md](https://github.com/VoltAgent/awesome-design-md) のセクション構成に沿う）。
 
 ## 推奨サブエージェント / スキル
 
@@ -15,16 +15,16 @@ description: URL・PDF・動画等からテイストを抽出し theme.md / desi
 ## 手順
 
 1. 人間から**入力一覧**を受け取る（パス、URL、動画のタイムコード指定可）。
-2. `taste-extraction` に従い、各入力をソース表に `Sxx` として登録。
-3. 観測ログ → トークン化。`theme.md` を先に数値・タイポ中心で更新し、続けて `design-system.md` でコンポーネント・レイアウトを更新。
+2. `taste-extraction` に従い、各入力を抽出ソース表に `Sxx` として登録（`DESIGN.md` 内の専用節、または由来ブロック直後に置く）。
+3. 観測ログ → トークン化。色・タイポ・余白は §2〜§3、コンポーネント・レイアウトは §4〜§6 など、該当セクションへ**重複なく**マージ。既存の awesome 由来本文と衝突する場合は「プロジェクト上書き」として明記する。
 4. 推測・未確定は必ずラベル。ライセンス不明のフォント・アセットは断定しない。
 5. 変更サマリを会話に返す。
 
 ## 完了条件
 
-- [ ] `docs/uiux/theme.md` の「抽出ソース」表が入力と一致
-- [ ] `docs/uiux/design-system.md` のトークン対応が `theme.md` の値と矛盾しない
-- [ ] URL/PDF/動画のうち少なくとも指定された種別に対応した記述がある
+- [ ] `DESIGN.md` の抽出ソース表が入力と一致している
+- [ ] 同一トークン・ルールの二重記述がない（または一方が「参照」と明記されている）
+- [ ] URL/PDF/動画のうち、指定された種別に対応した記述がある
 
 ## 注意
 
