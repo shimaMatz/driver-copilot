@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "TruckCopilot",
+    "slug": "truck-copilot",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "地図上での現在地表示とルート案内のために位置情報を使用します。",
+        "NSMicrophoneUsageDescription": "音声コマンドで目的地設定やナビ操作を行うためにマイクを使用します。",
+        "NSSpeechRecognitionUsageDescription": "「出発」「停止」などの音声コマンドを認識するために音声認識を使用します。"
+      },
+      "bundleIdentifier": "com.anonymous.truck-copilot"
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "RECORD_AUDIO"
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+/** 添付 UI（JR 系ダーク）に寄せたパレット */
+export const TD_BG = '#000000';
+export const TD_SURFACE = '#1C1C1E';
+export const TD_SURFACE_ELEV = '#2C2C2E';
+export const TD_TEXT = '#FFFFFF';
+export const TD_TEXT_MUTED = '#8E8E93';
+export const TD_ACCENT = '#30D158';
+export const TD_TAB_BAR = '#161618';
+export const TD_LINE_BLUE = '#0A84FF';
+export const TD_BADGE_ORANGE = '#FF9F0A';
+export const TD_BADGE_PURPLE = '#BF5AF2';

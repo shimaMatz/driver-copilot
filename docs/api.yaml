@@ -1,0 +1,223 @@
+openapi: "3.0.3"
+info:
+  title: Driver Copilot Backend API
+  description: |
+    長距離トラックドライバー向けナビゲーションアプリ「Driver Copilot」の自前バックエンドAPI。
+    休憩スポットの推薦機能を提供する。
+  version: "0.1.0"
+
+servers:
+  - url: http://localhost:8080
+    description: ローカル開発サーバー
+  - url: "{baseUrl}"
+    description: 任意のバックエンド
+    variables:
+      baseUrl:
+        default: http://localhost:8080
+
+paths:
+  /api/v1/navigation/recommend-rest:
+    post:
+      operationId: recommendRest
+      summary: 休憩スポット推薦
+      description: |
+        出発地・目的地の座標と残り運転可能時間を受け取り、
+        ルート上の最適な休憩スポット候補を混雑予測付きで返す。
+        緊急時（残り時間僅少等）は emergency フィールドに安全指示を含む。
+      tags:
+        - navigation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommendRestRequest"
+            example:
+              originLat: 35.6812
+              originLng: 139.7671
+              destLat: 34.6937
+              destLng: 135.5023
+              remainingDrivingSeconds: 7200
+      responses:
+        "200":
+          description: 推薦結果
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NavigationRecommendation"
+              example:
+                remainingDrivingSeconds: 7200
+                candidates:
+                  - id: "sa-001"
+                    name: "海老名SA"
+                    lat: 35.4437
+                    lng: 139.3811
+                    etaMinutes: 45
+                    congestionLevel: "medium"
+                    predictedAvailableLots: 12
+                    confidence: "high"
+                    isRecommended: true
+                    reason: "混雑が中程度で、到着予想時間が休憩タイミングに適しています"
+                avoidedReasons:
+                  - "足柄SA: 混雑予測が高く駐車困難"
+        "400":
+          description: リクエストパラメータ不正
+        "500":
+          description: サーバー内部エラー
+
+components:
+  schemas:
+    RecommendRestRequest:
+      type: object
+      required:
+        - originLat
+        - originLng
+        - destLat
+        - destLng
+        - remainingDrivingSeconds
+      properties:
+        originLat:
+          type: number
+          format: double
+          description: 出発地の緯度
+          example: 35.6812
+        originLng:
+          type: number
+          format: double
+          description: 出発地の経度
+          example: 139.7671
+        destLat:
+          type: number
+          format: double
+          description: 目的地の緯度
+          example: 34.6937
+        destLng:
+          type: number
+          format: double
+          description: 目的地の経度
+          example: 135.5023
+        remainingDrivingSeconds:
+          type: integer
+          description: 残り連続運転可能秒数（430ルール基準）
+          example: 7200
+
+    NavigationRecommendation:
+      type: object
+      required:
+        - remainingDrivingSeconds
+        - candidates
+        - avoidedReasons
+      properties:
+        remainingDrivingSeconds:
+          type: integer
+          description: 残り連続運転可能秒数
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestSpotCandidate"
+          description: 休憩スポット候補リスト
+        avoidedReasons:
+          type: array
+          items:
+            type: string
+          description: 候補から除外されたスポットとその理由
+        emergency:
+          $ref: "#/components/schemas/EmergencySuggestion"
+
+    RestSpotCandidate:
+      type: object
+      required:
+        - id
+        - name
+        - lat
+        - lng
+        - etaMinutes
+        - congestionLevel
+        - predictedAvailableLots
+        - confidence
+        - isRecommended
+        - reason
+      properties:
+        id:
+          type: string
+          description: スポット一意識別子
+        name:
+          type: string
+          description: スポット名称
+        lat:
+          type: number
+          format: double
+          description: 緯度
+        lng:
+          type: number
+          format: double
+          description: 経度
+        etaMinutes:
+          type: integer
+          description: 現在地からの到着予想時間（分）
+        congestionLevel:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          description: 混雑レベル
+        predictedAvailableLots:
+          type: integer
+          description: 予測空き駐車台数
+        confidence:
+          type: string
+          enum:
+            - high
+            - medium
+            - low
+          description: 予測の信頼度
+        isRecommended:
+          type: boolean
+          description: 推薦フラグ
+        reason:
+          type: string
+          description: 推薦/非推薦の理由テキスト
+
+    EmergencySuggestion:
+      type: object
+      required:
+        - title
+        - message
+        - safetySteps
+        - suggestedLat
+        - suggestedLng
+      properties:
+        title:
+          type: string
+          description: 緊急通知のタイトル
+        message:
+          type: string
+          description: 緊急通知のメッセージ本文
+        safetySteps:
+          type: array
+          items:
+            type: string
+          description: 安全確保のための手順リスト
+        suggestedLat:
+          type: number
+          format: double
+          description: 緊急停車推奨地点の緯度
+        suggestedLng:
+          type: number
+          format: double
+          description: 緊急停車推奨地点の経度
+
+    CongestionLevel:
+      type: string
+      enum:
+        - low
+        - medium
+        - high
+
+    ConfidenceLevel:
+      type: string
+      enum:
+        - high
+        - medium
+        - low
