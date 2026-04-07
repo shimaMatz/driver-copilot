@@ -1,0 +1,7 @@
+# Local environment (secrets). Use *.example files as templates only.
+.env
+.env.*
+!.env.example
+
+expo/.env
+!expo/.env.example
