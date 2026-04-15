@@ -5,3 +5,5 @@
 
 expo/.env
 !expo/.env.example
+
+node_modules
