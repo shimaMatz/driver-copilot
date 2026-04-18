@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { DirectionsRoute, RouteStep } from './navigationApiClient';
 import { formatDurationJa } from './routeSummary';
@@ -158,6 +158,7 @@ export function RouteProposalView({
   originLabel,
   destLabel,
   departureLine,
+  departureBase,
   columns,
   filter,
   onFilterChange,
@@ -169,6 +170,7 @@ export function RouteProposalView({
   originLabel: string;
   destLabel: string;
   departureLine: string;
+  departureBase: Date;
   columns: ProposalColumnModel[];
   filter: ProposalFilterTab;
   onFilterChange: (f: ProposalFilterTab) => void;
@@ -177,7 +179,6 @@ export function RouteProposalView({
   paddingTop: number;
   paddingBottom: number;
 }): React.JSX.Element {
-  const departureBase = useMemo(() => new Date(), []);
   const withRoutes = columns.filter(c => c.route);
 
   return (

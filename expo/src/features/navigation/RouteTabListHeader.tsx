@@ -49,6 +49,15 @@ type Props = {
   generalRoute: unknown;
   onPressGoProposals: () => void;
   onOpenMap: () => void;
+  onOpenBottomSheet: (mode: 'destination' | 'waypoint') => void;
+  onOpenDepartureBottomSheet: () => void;
+  /** 経路ヘッダー「現在時刻」相当の左側（確定後は時刻文字列） */
+  routeTimePrimaryLabel: string;
+  /** 経路ヘッダー右側の「出発」または「到着」 */
+  routeTimeKindLabel: string;
+  selectedDestinationLabel: string | null;
+  selectedWaypoints: string[];
+  onRemoveWaypoint: (index: number) => void;
   truckProfileLoaded: boolean;
   truckLenM: number;
   truckWidM: number;
@@ -117,38 +126,39 @@ const cstyles = StyleSheet.create({
   congDetail: { color: TD_TEXT_MUTED, fontSize: 12, lineHeight: 17, marginTop: 4 },
 });
 
-const TOP_TABS: { key: TopSearchTab; label: string }[] = [
-  { key: 'history', label: '検索履歴' },
-  { key: 'search', label: '検索' },
-  { key: 'favorites', label: 'よく見る検索' },
-];
-
 export function RouteTabListHeader(props: Props): React.JSX.Element {
   const {
-    insetsTop,
-    topSearchTab,
-    onTopSearchTab,
+    insetsTop: _insetsTop,
+    topSearchTab: _topSearchTab,
+    onTopSearchTab: _onTopSearchTab,
     routeFlowPhase,
-    hasDestination,
-    destinationQuery,
-    destinationFieldOpen,
-    destinationFieldFocused,
-    destinationSearchInputRef,
-    setDestinationQuery,
-    onOpenDestinationField,
-    onDestinationFocus,
-    onDestinationBlur,
-    isSuggesting,
+    hasDestination: _hasDestination,
+    destinationQuery: _destinationQuery,
+    destinationFieldOpen: _destinationFieldOpen,
+    destinationFieldFocused: _destinationFieldFocused,
+    destinationSearchInputRef: _destinationSearchInputRef,
+    setDestinationQuery: _setDestinationQuery,
+    onOpenDestinationField: _onOpenDestinationField,
+    onDestinationFocus: _onDestinationFocus,
+    onDestinationBlur: _onDestinationBlur,
+    isSuggesting: _isSuggesting,
     isFetchingRoute,
     tollRoute,
     generalRoute,
     onPressGoProposals,
     onOpenMap,
-    truckProfileLoaded,
-    truckLenM,
-    truckWidM,
-    truckHgtM,
-    onChangeDestination,
+    onOpenBottomSheet,
+    onOpenDepartureBottomSheet,
+    routeTimePrimaryLabel,
+    routeTimeKindLabel,
+    selectedDestinationLabel,
+    selectedWaypoints,
+    onRemoveWaypoint,
+    truckProfileLoaded: _truckProfileLoaded,
+    truckLenM: _truckLenM,
+    truckWidM: _truckWidM,
+    truckHgtM: _truckHgtM,
+    onChangeDestination: _onChangeDestination,
     isNavigating,
     stopNavigation,
     error,
@@ -159,30 +169,31 @@ export function RouteTabListHeader(props: Props): React.JSX.Element {
     listDataStepCount,
   } = props;
 
+  void _insetsTop;
+  void _topSearchTab;
+  void _onTopSearchTab;
+  void _hasDestination;
+  void _destinationQuery;
+  void _destinationFieldOpen;
+  void _destinationFieldFocused;
+  void _destinationSearchInputRef;
+  void _setDestinationQuery;
+  void _onOpenDestinationField;
+  void _onDestinationFocus;
+  void _onDestinationBlur;
+  void _isSuggesting;
+  void _truckProfileLoaded;
+  void _truckLenM;
+  void _truckWidM;
+  void _truckHgtM;
+  void _onChangeDestination;
+  const hasDestination = true;
+
   const goDisabled =
     !hasDestination || isFetchingRoute || (!tollRoute && !generalRoute);
 
   return (
     <View style={styles.root}>
-      <View style={[styles.topTabs, { paddingTop: Math.max(insetsTop, 8) }]}>
-        {TOP_TABS.map(t => {
-          const on = topSearchTab === t.key;
-          return (
-            <Pressable
-              key={t.key}
-              onPress={() => onTopSearchTab(t.key)}
-              style={styles.topTabHit}
-            >
-              <Text style={[styles.topTabText, on && styles.topTabTextOn]}>
-                {t.key === 'search' ? '🔍 ' : ''}
-                {t.label}
-              </Text>
-              {on ? <View style={styles.topTabUnderline} /> : <View style={styles.topTabUnderlineHidden} />}
-            </Pressable>
-          );
-        })}
-      </View>
-
       {routeFlowPhase !== 'guidance' ? (
         <View
           style={[
@@ -190,120 +201,84 @@ export function RouteTabListHeader(props: Props): React.JSX.Element {
             routeFlowPhase === 'minimal' ? styles.blackSheetMinimal : null,
           ]}
         >
-          <View style={styles.mapCorner}>
-            <TouchableOpacity onPress={onOpenMap} hitSlop={12}>
-              <Text style={styles.mapCornerTxt}>地図</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.placeRow}>
+          <View style={[styles.placeStack, styles.placeStackCentered]}>
             <Text style={styles.placeGreen} numberOfLines={1}>
               現在地
             </Text>
-            <Text style={styles.placeKana}>から</Text>
-          </View>
+            <Text style={styles.placeKanaLine}>から</Text>
 
-          {routeFlowPhase === 'editor' ? (
-            <View style={styles.midTools}>
-              <TouchableOpacity style={styles.swapOrb} accessibilityLabel="入れ替え">
-                <Text style={styles.swapOrbTxt}>⇅</Text>
-              </TouchableOpacity>
-              <Pressable style={styles.viaPill} onPress={onOpenMap}>
-                <Text style={styles.viaPillTxt}>+ 経由</Text>
+            {selectedWaypoints.map((wp, idx) => (
+              <View key={idx} style={styles.waypointRow}>
+                <Text style={styles.waypointText} numberOfLines={1}>
+                  {wp}
+                </Text>
+                <Pressable onPress={() => onRemoveWaypoint(idx)} hitSlop={8}>
+                  <Text style={styles.waypointRemove}>✕</Text>
+                </Pressable>
+              </View>
+            ))}
+
+            {selectedWaypoints.length < 5 && (
+              <Pressable
+                style={styles.viaPillCenter}
+                onPress={() => {
+                  onOpenBottomSheet('waypoint');
+                }}
+              >
+                <Text style={styles.viaPillTxt}>＋ 経由</Text>
               </Pressable>
-            </View>
-          ) : null}
+            )}
 
-          {hasDestination ? (
-            <View style={[styles.placeRow, { marginTop: routeFlowPhase === 'editor' ? 18 : 14 }]}>
-              <Text style={styles.placeGreen} numberOfLines={1}>
-                {destinationQuery.trim() || '目的地'}
-              </Text>
-              <Text style={styles.placeKana}>まで</Text>
-            </View>
-          ) : (
             <Pressable
-              onPress={onOpenDestinationField}
-              style={styles.unsetWrap}
+              onPress={() => {
+                onOpenBottomSheet('destination');
+              }}
               accessibilityRole="button"
               accessibilityLabel="目的地を設定"
+              style={styles.destPressable}
             >
-              <View style={styles.placeRow}>
-                <Text style={styles.placeGreenMuted} numberOfLines={1}>
-                  未設定
-                </Text>
-                <Text style={styles.placeKana}>まで</Text>
-              </View>
-              <Text style={styles.unsetHint}>タップして入力</Text>
+              <Text
+                style={[styles.placeGreen, styles.placeGreenLine]}
+                numberOfLines={1}
+              >
+                {selectedDestinationLabel ?? '目的地'}
+              </Text>
+              <Text style={styles.placeKanaLine}>まで</Text>
             </Pressable>
-          )}
 
-          {!hasDestination && destinationFieldOpen ? (
-            <View style={styles.searchBox}>
-              <Text style={styles.searchLabel}>目的地</Text>
-              <TextInput
-                ref={destinationSearchInputRef}
-                value={destinationQuery}
-                onChangeText={setDestinationQuery}
-                placeholder=""
-                placeholderTextColor={TD_TEXT_MUTED}
-                style={[
-                  styles.searchInput,
-                  destinationFieldFocused && styles.searchInputOn,
-                ]}
-                returnKeyType="search"
-                clearButtonMode="while-editing"
-                onFocus={onDestinationFocus}
-                onBlur={onDestinationBlur}
-              />
-              {isSuggesting ? <Text style={styles.searchStatus}>候補を検索中…</Text> : null}
-              {isFetchingRoute ? <Text style={styles.searchStatus}>ルートを取得中…</Text> : null}
+            <Pressable
+              style={styles.timeRow}
+              onPress={onOpenDepartureBottomSheet}
+              accessibilityRole="button"
+              accessibilityLabel={`出発・到着時刻: ${routeTimePrimaryLabel}、${routeTimeKindLabel}`}
+            >
+              <Text>
+                <Text style={styles.timeEm}>{routeTimePrimaryLabel}</Text>
+                <Text style={styles.timePlain}>　{routeTimeKindLabel}</Text>
+              </Text>
+            </Pressable>
+            <View style={styles.goWrap}>
+              <TouchableOpacity
+                style={[styles.goDisc, goDisabled && styles.goDiscOff]}
+                disabled={goDisabled}
+                onPress={onPressGoProposals}
+                accessibilityLabel="経路を検索"
+              >
+                <Text style={styles.goDiscTxt}>GO!</Text>
+              </TouchableOpacity>
             </View>
-          ) : null}
 
-          {routeFlowPhase === 'editor' && hasDestination ? (
-            <>
-              <View style={styles.timeRow}>
-                <Text>
-                  <Text style={styles.timeEm}>現在時刻</Text>
-                  <Text style={styles.timePlain}> 出発</Text>
-                </Text>
-              </View>
-              <View style={styles.goWrap}>
-                <TouchableOpacity
-                  style={[styles.goDisc, goDisabled && styles.goDiscOff]}
-                  disabled={goDisabled}
-                  onPress={onPressGoProposals}
-                  accessibilityLabel="経路を検索"
-                >
-                  <Text style={styles.goDiscTxt}>GO!</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.filterRow}>
-                {[
-                  ['RT', 'オフ'],
-                  ['JRのみ', 'オフ'],
-                  ['🚶', 'ふつう'],
-                  ['運賃', '設定'],
-                  ['交通', '手段'],
-                ].map(([a, b], i) => (
-                  <View key={i} style={styles.filterSq}>
-                    <Text style={styles.filterSqTop} numberOfLines={1}>
-                      {a}
-                    </Text>
-                    <Text style={styles.filterSqBot} numberOfLines={1}>
-                      {b}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-              <View style={styles.dotRow}>
-                <View style={styles.dot} />
-                <View style={[styles.dot, styles.dotOn]} />
-                <View style={styles.dot} />
-              </View>
-            </>
-          ) : null}
+            <View style={styles.optionRow}>
+              <TouchableOpacity style={styles.optionBtn}>
+                <Text style={styles.optionBtnTop}>高速道路</Text>
+                <Text style={styles.optionBtnBot}>オン</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.optionBtn}>
+                <Text style={styles.optionBtnTop}>ETC</Text>
+                <Text style={styles.optionBtnBot}>オン</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       ) : (
         <View style={styles.guidanceBlock}>
@@ -343,28 +318,6 @@ export function RouteTabListHeader(props: Props): React.JSX.Element {
         </View>
       )}
 
-      {truckProfileLoaded && routeFlowPhase === 'editor' ? (
-        <View style={styles.truckStrip}>
-          <Text style={styles.truckStripTxt} numberOfLines={1}>
-            車両 {truckLenM} × {truckWidM} × {truckHgtM} m
-          </Text>
-        </View>
-      ) : null}
-
-      {hasDestination && routeFlowPhase === 'editor' && !isNavigating ? (
-        <View style={styles.destBar}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.destBarLbl}>目的地</Text>
-            <Text style={styles.destBarName} numberOfLines={1}>
-              {destinationQuery}
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.destChange} onPress={onChangeDestination}>
-            <Text style={styles.destChangeTxt}>変更</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
       {error ? <Text style={styles.errBanner}>{error}</Text> : null}
     </View>
   );
@@ -380,7 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: TD_BG,
   },
   topTabHit: { flex: 1, alignItems: 'center', paddingVertical: 8 },
-  topTabText: { color: TD_TEXT_MUTED, fontSize: 12, fontWeight: '700' },
+  topTabText: { color: TD_TEXT_MUTED, fontSize: 20, fontWeight: '700' },
   topTabTextOn: { color: TD_TEXT },
   topTabUnderline: {
     marginTop: 6,
@@ -402,19 +355,29 @@ const styles = StyleSheet.create({
   },
   mapCorner: { alignItems: 'flex-end', marginBottom: 4 },
   mapCornerTxt: { color: TD_ACCENT, fontSize: 14, fontWeight: '800' },
+  placeStack: {},
+  placeStackCentered: {
+    minHeight: 580,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 24,
+  },
   placeRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', marginTop: 8 },
+  placeRowCenter: { justifyContent: 'center' },
   placeGreen: {
     color: TD_ACCENT,
     fontSize: 32,
     fontWeight: '900',
     letterSpacing: -0.5,
-    maxWidth: '88%',
+    textAlign: 'center',
   },
+  placeGreenLine: { marginTop: 24 },
   placeGreenMuted: {
     color: TD_ACCENT,
     fontSize: 32,
     fontWeight: '900',
     opacity: 0.85,
+    textAlign: 'center',
   },
   placeKana: {
     color: TD_TEXT,
@@ -422,6 +385,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 8,
   },
+  placeKanaLine: {
+    color: TD_TEXT,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  waypointRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 8,
+    gap: 10,
+  },
+  waypointText: {
+    color: TD_ACCENT,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  waypointRemove: {
+    color: TD_TEXT_MUTED,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  viaPillCenter: {
+    marginTop: 24,
+    alignSelf: 'center',
+    backgroundColor: TD_SURFACE,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  unsetCenterWrap: {
+    marginTop: 6,
+    alignSelf: 'center',
+    alignItems: 'center',
+  },
+  destPressable: { alignSelf: 'center', alignItems: 'center' },
   midTools: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -445,7 +446,9 @@ const styles = StyleSheet.create({
   },
   viaPillTxt: { color: TD_TEXT, fontSize: 14, fontWeight: '800' },
   unsetWrap: { marginTop: 14, alignSelf: 'flex-start' },
+  unsetWrapCentered: { alignSelf: 'center', alignItems: 'center' },
   unsetHint: { color: TD_TEXT_MUTED, fontSize: 12, marginTop: 6, fontWeight: '600' },
+  unsetHintCentered: { textAlign: 'center' },
   searchBox: { marginTop: 18 },
   searchLabel: { color: TD_TEXT, fontSize: 12, fontWeight: '800', marginBottom: 8 },
   searchInput: {
@@ -460,20 +463,45 @@ const styles = StyleSheet.create({
   },
   searchInputOn: { borderColor: TD_ACCENT },
   searchStatus: { color: TD_TEXT_MUTED, fontSize: 12, marginTop: 8 },
-  timeRow: { marginTop: 20, alignItems: 'center' },
-  timeEm: { color: TD_ACCENT, fontSize: 14, fontWeight: '800' },
-  timePlain: { color: TD_TEXT, fontSize: 14, fontWeight: '700' },
-  goWrap: { flex: 1, minHeight: 140, justifyContent: 'center', alignItems: 'center', marginVertical: 8 },
+  timeRow: { marginTop: 32, alignItems: 'center' },
+  timeEm: { color: TD_ACCENT, fontSize: 20, fontWeight: '800' },
+  timePlain: { color: TD_TEXT, fontSize: 20, fontWeight: '700' },
+  goWrap: { justifyContent: 'center', alignItems: 'center', marginTop: 32 },
   goDisc: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: TD_ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
   },
   goDiscOff: { opacity: 0.35 },
-  goDiscTxt: { color: '#000', fontSize: 22, fontWeight: '900' },
+  goDiscTxt: { color: '#000', fontSize: 24, fontWeight: '900' },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 20,
+  },
+  optionBtn: {
+    backgroundColor: TD_SURFACE,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  optionBtnTop: {
+    color: TD_ACCENT,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  optionBtnBot: {
+    color: TD_TEXT,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+  },
   filterRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

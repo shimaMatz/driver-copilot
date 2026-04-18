@@ -25,7 +25,10 @@ import {
   type ProposalColumnModel,
   type ProposalFilterTab,
 } from './RouteProposalView';
+import { DepartureTimeBottomSheet, type DepartureTripKind } from './DepartureTimeBottomSheet';
 import { RouteTabListHeader } from './RouteTabListHeader';
+import { SearchBottomSheet } from './SearchBottomSheet';
+import { TopSearchTabs } from './TopSearchTabs';
 import {
   TD_ACCENT,
   TD_BG,
@@ -42,21 +45,36 @@ import {
 import { useTruckProfile } from './useTruckProfile';
 
 type BottomTab = 'route' | 'facility' | 'more';
+type BottomSheetMode = 'destination' | 'waypoint' | 'departureTime' | null;
 
-const TAB_ITEMS: { key: BottomTab; label: string; sub: string }[] = [
-  { key: 'route', label: '経路', sub: '検索・案内' },
-  { key: 'facility', label: '駅情報', sub: 'SA/PA' },
-  { key: 'more', label: 'もっと見る', sub: '設定など' },
+const TAB_ITEMS: { key: BottomTab; label: string; }[] = [
+  { key: 'route', label: '経路'},
+  { key: 'facility', label: 'SA/PA情報'},
+  { key: 'more', label: '設定'},
 ];
 
-function formatJapaneseDepartureLine(d = new Date()): string {
+function formatJapaneseDepartureLine(d: Date, kind: DepartureTripKind = 'departure'): string {
   const wk = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()] ?? '日';
   const mo = d.getMonth() + 1;
   const day = d.getDate();
   const h = d.getHours();
   const mi = d.getMinutes();
   const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
-  return `${mo}月${day}日(${wk}) ${pad(h)}:${pad(mi)} 出発`;
+  const tail = kind === 'arrival' ? '到着' : '出発';
+  return `${mo}月${day}日(${wk}) ${pad(h)}:${pad(mi)} ${tail}`;
+}
+
+/** 経路ヘッダー（現在時刻行）用の短い時刻表記 */
+function formatRouteHeaderTimeLine(d: Date): string {
+  const pad2 = (n: number) => (n < 10 ? `0${n}` : String(n));
+  const now = new Date();
+  const sameCalendarDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const hm = `${d.getHours()}:${pad2(d.getMinutes())}`;
+  if (sameCalendarDay) return hm;
+  return `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
 }
 
 const ZOOM_FACTOR = 0.55;
@@ -104,6 +122,45 @@ export function NavigationScreen(): React.JSX.Element {
   const [destinationFieldOpen, setDestinationFieldOpen] = useState(false);
   const [destinationFieldFocused, setDestinationFieldFocused] = useState(false);
   const [mapVisible, setMapVisible] = useState(false);
+  const [selectedDestinationLabel, setSelectedDestinationLabel] = useState<string | null>(null);
+  const [selectedWaypoints, setSelectedWaypoints] = useState<string[]>([]);
+  const [selectedDepartureAt, setSelectedDepartureAt] = useState(() => new Date());
+  const [departureTripKind, setDepartureTripKind] = useState<DepartureTripKind>('departure');
+  /** 出発時刻シートで「設定する」を押したあと、ヘッダーを数値時刻＋出発/到着に切り替える */
+  const [departureTimeCommitted, setDepartureTimeCommitted] = useState(false);
+  const [bottomSheetMode, setBottomSheetMode] = useState<BottomSheetMode>(null);
+  const bottomSheetModeRef = useRef<BottomSheetMode>(null);
+  const openBottomSheet = useCallback((mode: Exclude<BottomSheetMode, null>) => {
+    setBottomSheetMode(mode);
+  }, []);
+  const closeBottomSheet = useCallback(() => {
+    setBottomSheetMode(null);
+  }, []);
+  const onDepartureTimeConfirm = useCallback((next: Date, kind: DepartureTripKind) => {
+    setSelectedDepartureAt(next);
+    setDepartureTripKind(kind);
+    setDepartureTimeCommitted(true);
+    setBottomSheetMode(null);
+  }, []);
+  const onSearchBottomSheetSelect = useCallback((name: string) => {
+    const mode = bottomSheetModeRef.current;
+    if (mode === 'waypoint') {
+      setSelectedWaypoints(prev => {
+        if (prev.length >= 5) return prev;
+        return [...prev, name];
+      });
+    } else if (mode === 'destination') {
+      setSelectedDestinationLabel(name);
+    }
+    setBottomSheetMode(null);
+  }, []);
+  const onRemoveWaypoint = useCallback((index: number) => {
+    setSelectedWaypoints(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  useEffect(() => {
+    bottomSheetModeRef.current = bottomSheetMode;
+  }, [bottomSheetMode]);
   const [mapRegion, setMapRegion] = useState<Region>({
     latitude: 35.681236,
     longitude: 139.767125,
@@ -438,6 +495,17 @@ export function NavigationScreen(): React.JSX.Element {
         generalRoute={generalRoute}
         onPressGoProposals={() => setRouteFlowPhase('proposals')}
         onOpenMap={() => setMapVisible(true)}
+        onOpenBottomSheet={(mode: 'destination' | 'waypoint') => openBottomSheet(mode)}
+        onOpenDepartureBottomSheet={() => openBottomSheet('departureTime')}
+        routeTimePrimaryLabel={
+          departureTimeCommitted ? formatRouteHeaderTimeLine(selectedDepartureAt) : '現在時刻'
+        }
+        routeTimeKindLabel={
+          departureTimeCommitted ? (departureTripKind === 'arrival' ? '到着' : '出発') : '出発'
+        }
+        selectedDestinationLabel={selectedDestinationLabel}
+        selectedWaypoints={selectedWaypoints}
+        onRemoveWaypoint={onRemoveWaypoint}
         truckProfileLoaded={truckProfileLoaded}
         truckLenM={truckProfile.lengthM}
         truckWidM={truckProfile.widthM}
@@ -487,19 +555,19 @@ export function NavigationScreen(): React.JSX.Element {
       congestionRows,
       routeProgress,
       currentLocation,
+      openBottomSheet,
+      selectedDestinationLabel,
+      selectedWaypoints,
+      onRemoveWaypoint,
+      departureTimeCommitted,
+      selectedDepartureAt,
+      departureTripKind,
     ],
   );
 
   const settingsListHeader = useMemo(
     () => (
       <View>
-        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
-          <View style={styles.topBarTitles}>
-            <Text style={styles.brandLine}>もっと見る</Text>
-            <Text style={styles.brandSub}>車両サイズ・位置情報・API</Text>
-          </View>
-        </View>
-
         <View style={styles.settingsSection}>
           <Text style={styles.settingsSectionTitle}>トラックのサイズ</Text>
           <Text style={styles.settingsSectionLead}>
@@ -542,14 +610,6 @@ export function NavigationScreen(): React.JSX.Element {
           <TouchableOpacity style={styles.saveTruckBtn} onPress={() => void handleSaveTruckProfile()}>
             <Text style={styles.saveTruckBtnText}>寸法を保存</Text>
           </TouchableOpacity>
-        </View>
-
-        <View style={styles.settingsSectionMuted}>
-          <Text style={styles.settingsSectionTitle}>位置情報・API</Text>
-          <Text style={styles.settingsBody}>
-            位置情報は現在地表示・ルート案内に使用します。Google Maps API キーはプロジェクトの .env に
-            EXPO_PUBLIC_GOOGLE_MAPS_API_KEY を設定してください。
-          </Text>
         </View>
       </View>
     ),
@@ -689,53 +749,9 @@ export function NavigationScreen(): React.JSX.Element {
     );
   }, []);
 
-  const facilityHeader = useMemo(
-    () => (
-      <View style={[styles.jrTabScreenHeader, { paddingTop: Math.max(insets.top, 12) }]}>
-        <Text style={styles.jrTabScreenTitle}>駅情報</Text>
-        <Text style={styles.jrTabScreenSub}>
-          SA/PA の駐車・トイレの探し方を案内します（テンプレ＋ダミー。現地案内が正です）。
-        </Text>
-      </View>
-    ),
-    [insets.top],
-  );
 
   const listEmpty = useMemo(() => {
-    if (!hasDestination) {
-      return (
-        <View style={styles.emptyBoxTransit}>
-          <Text style={styles.emptyTextTransit}>
-            {!destinationFieldOpen
-              ? '上の「未設定」をタップして入力を始めると、候補がここに表示されます'
-              : 'キーワードを入力すると、候補がここに表示されます'}
-          </Text>
-        </View>
-      );
-    }
-    if (routeFlowPhase === 'editor') {
-      return (
-        <View style={styles.emptyBoxTransit}>
-          <Text style={styles.emptyTextTransit}>
-            GO! を押すと、高速優先と一般優先の経路を比較できます。
-          </Text>
-        </View>
-      );
-    }
-    if (isFetchingRoute) {
-      return (
-        <View style={styles.emptyBoxTransit}>
-          <Text style={styles.emptyTextTransit}>ルートを取得しています…</Text>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.emptyBoxTransit}>
-        <Text style={styles.emptyTextTransit}>
-          インター・JCT・SA/PA の地点が取得できませんでした（API の指示文に依存します）
-        </Text>
-      </View>
-    );
+    return null;
   }, [hasDestination, isFetchingRoute, destinationFieldOpen, routeFlowPhase]);
 
   const hasProposalRoutes = proposalColumns.some(c => c.route);
@@ -748,12 +764,19 @@ export function NavigationScreen(): React.JSX.Element {
           bottomTab === 'route' ? styles.contentFillDark : null,
         ]}
       >
+        <TopSearchTabs
+          insetsTop={insets.top}
+          topSearchTab={topSearchTab}
+          onTopSearchTab={setTopSearchTab}
+        />
+
         {bottomTab === 'route' && routeFlowPhase === 'proposals' ? (
           hasProposalRoutes ? (
             <RouteProposalView
               originLabel="現在地"
               destLabel={destinationQuery.trim() || '目的地'}
-              departureLine={formatJapaneseDepartureLine()}
+              departureLine={formatJapaneseDepartureLine(selectedDepartureAt, departureTripKind)}
+              departureBase={selectedDepartureAt}
               columns={proposalColumns}
               filter={proposalFilter}
               onFilterChange={setProposalFilter}
@@ -796,7 +819,6 @@ export function NavigationScreen(): React.JSX.Element {
             data={facilityRows}
             keyExtractor={i => i.key}
             renderItem={renderFacilityRow}
-            ListHeaderComponent={facilityHeader}
             ListEmptyComponent={facilityListEmpty}
           />
         ) : null}
@@ -826,13 +848,26 @@ export function NavigationScreen(): React.JSX.Element {
               >
                 <View style={styles.tabItemInner}>
                   <Text style={[styles.tabLabelJr, active && styles.tabLabelJrActive]}>{t.label}</Text>
-                  <Text style={[styles.tabSubJr, active && styles.tabSubJrActive]}>{t.sub}</Text>
                 </View>
               </TouchableOpacity>
             );
           })}
         </View>
       </View>
+
+      <SearchBottomSheet
+        visible={bottomSheetMode === 'destination' || bottomSheetMode === 'waypoint'}
+        mode={bottomSheetMode === 'waypoint' ? 'waypoint' : 'destination'}
+        onClose={() => setBottomSheetMode(null)}
+        onSelect={onSearchBottomSheetSelect}
+      />
+
+      <DepartureTimeBottomSheet
+        visible={bottomSheetMode === 'departureTime'}
+        value={selectedDepartureAt}
+        onClose={closeBottomSheet}
+        onConfirm={onDepartureTimeConfirm}
+      />
 
       <Modal visible={mapVisible} animationType="slide" onRequestClose={() => setMapVisible(false)}>
         <View style={styles.mapModalRoot}>
@@ -1391,19 +1426,11 @@ const styles = StyleSheet.create({
   tabItemInner: { alignItems: 'center', paddingVertical: 6 },
   tabLabelJr: {
     color: TD_TEXT_MUTED,
-    fontSize: 9,
+    fontSize: 15,
     fontWeight: '800',
     textAlign: 'center',
   },
   tabLabelJrActive: { color: TD_ACCENT },
-  tabSubJr: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 8,
-    fontWeight: '600',
-    marginTop: 1,
-    textAlign: 'center',
-  },
-  tabSubJrActive: { color: TD_TEXT },
   mapModalRoot: { flex: 1, backgroundColor: '#000' },
   mapModalTopChrome: {
     position: 'absolute',
