@@ -15,13 +15,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  TD_ACCENT,
-  TD_BG,
-  TD_SURFACE,
-  TD_SURFACE_ELEV,
-  TD_TEXT,
-  TD_TEXT_MUTED,
-} from './transitDarkTheme';
+  WF_BG,
+  WF_BORDER,
+  WF_CARD,
+  WF_PRIMARY,
+  WF_SECTION_BG,
+  WF_TEXT,
+  WF_TEXT_MUTED,
+  WF_WHITE,
+} from './wireframeTheme';
 
 export type DepartureTripKind = 'departure' | 'arrival';
 
@@ -148,17 +150,17 @@ const wheelStyles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   cellText: {
-    color: TD_TEXT_MUTED,
+    color: WF_TEXT_MUTED,
     fontSize: 15,
     fontWeight: '600',
   },
   cellTextActive: {
-    color: TD_TEXT,
+    color: WF_TEXT,
     fontSize: 17,
     fontWeight: '800',
   },
   shade: {
-    backgroundColor: 'rgba(28,28,30,0.82)',
+    backgroundColor: 'rgba(245,245,240,0.9)',
   },
 });
 
@@ -372,7 +374,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: TD_BG,
+    backgroundColor: WF_BG,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
@@ -400,18 +402,18 @@ const styles = StyleSheet.create({
     width: 48,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#58595B',
+    backgroundColor: WF_BORDER,
   },
   closeBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: TD_SURFACE_ELEV,
+    backgroundColor: WF_SECTION_BG,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeBtnText: {
-    color: TD_TEXT_MUTED,
+    color: WF_TEXT_MUTED,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -421,10 +423,12 @@ const styles = StyleSheet.create({
   },
   segmentBar: {
     flexDirection: 'row',
-    backgroundColor: TD_SURFACE,
+    backgroundColor: WF_CARD,
     borderRadius: 12,
     padding: 4,
     gap: 4,
+    borderWidth: 1,
+    borderColor: WF_BORDER,
   },
   segment: {
     flex: 1,
@@ -433,22 +437,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   segmentActive: {
-    backgroundColor: TD_ACCENT,
+    backgroundColor: WF_PRIMARY,
   },
   segmentText: {
-    color: TD_TEXT_MUTED,
+    color: WF_TEXT_MUTED,
     fontSize: 13,
     fontWeight: '800',
   },
   segmentTextActive: {
-    color: '#FFFFFF',
+    color: WF_WHITE,
   },
   pickerRow: {
     flexDirection: 'row',
     marginTop: 18,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#3A3A3C',
+    borderColor: WF_BORDER,
   },
   quickRow: {
     flexDirection: 'row',
@@ -458,19 +462,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   quickLink: {
-    color: TD_ACCENT,
+    color: WF_PRIMARY,
     fontSize: 14,
     fontWeight: '800',
   },
   primaryBtn: {
     marginTop: 22,
-    backgroundColor: TD_ACCENT,
+    backgroundColor: WF_PRIMARY,
     borderRadius: 999,
     paddingVertical: 15,
     alignItems: 'center',
   },
   primaryBtnText: {
-    color: '#FFFFFF',
+    color: WF_WHITE,
     fontSize: 17,
     fontWeight: '800',
   },

@@ -7,3 +7,6 @@ expo/.env
 !expo/.env.example
 
 node_modules
+
+# README スクリプトが生成する一時 Web ビルド（PNG のみコミット）
+docs/readme/.web-build/

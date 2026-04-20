@@ -2,19 +2,24 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RouteStep } from './navigationApiClient';
 import { formatDurationJa } from './routeSummary';
+import {
+  WF_BORDER,
+  WF_CARD,
+  WF_ERROR,
+  WF_LINE_CYAN,
+  WF_PRIMARY,
+  WF_PRIMARY_FADE,
+  WF_PRIMARY_FADE_STRONG,
+  WF_TEXT,
+  WF_TEXT_MUTED,
+  WF_WHITE,
+} from './wireframeTheme';
 
 interface Props {
   steps: RouteStep[];
   /** 現在地から最も近いステップの index（ナビ中のハイライト用） */
   currentStepIndex?: number;
 }
-
-const JR_GREEN = '#35A86E';
-const DEEP_NAVY = '#34525F';
-const MUTED_GREEN = '#58A573';
-const HAIRLINE = '#E4E4EA';
-const BG_WHITE = '#FFFFFF';
-const CORAL = '#E3596E';
 
 function stepTypeLabel(type: RouteStep['type']): string | null {
   switch (type) {
@@ -190,30 +195,30 @@ const DOT_TERMINAL_SIZE = 22;
 
 const s = StyleSheet.create({
   container: {
-    backgroundColor: BG_WHITE,
+    backgroundColor: WF_CARD,
     borderRadius: 16,
     marginHorizontal: 12,
     marginBottom: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: HAIRLINE,
+    borderColor: WF_BORDER,
   },
   header: {
-    backgroundColor: BG_WHITE,
+    backgroundColor: WF_CARD,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: HAIRLINE,
+    borderBottomColor: WF_BORDER,
   },
   headerTitle: {
-    color: DEEP_NAVY,
+    color: WF_TEXT,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
   headerSub: {
-    color: MUTED_GREEN,
+    color: WF_TEXT_MUTED,
     fontSize: 12,
     marginTop: 2,
     fontWeight: '600',
@@ -226,14 +231,14 @@ const s = StyleSheet.create({
     paddingRight: 16,
   },
   emptyWrap: {
-    backgroundColor: BG_WHITE,
+    backgroundColor: WF_CARD,
     borderRadius: 16,
     marginHorizontal: 12,
     padding: 20,
     alignItems: 'center',
   },
   emptyText: {
-    color: '#9ca3af',
+    color: WF_TEXT_MUTED,
     fontSize: 13,
   },
 
@@ -264,13 +269,13 @@ const s = StyleSheet.create({
     borderRadius: 1.5,
   },
   lineUpcoming: {
-    backgroundColor: JR_GREEN,
+    backgroundColor: WF_PRIMARY,
   },
   linePassed: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: WF_BORDER,
   },
   lineToll: {
-    backgroundColor: JR_GREEN,
+    backgroundColor: WF_PRIMARY,
   },
 
   // --- ドット ---
@@ -278,9 +283,9 @@ const s = StyleSheet.create({
     width: DOT_SIZE,
     height: DOT_SIZE,
     borderRadius: DOT_SIZE / 2,
-    backgroundColor: BG_WHITE,
+    backgroundColor: WF_CARD,
     borderWidth: 3,
-    borderColor: JR_GREEN,
+    borderColor: WF_PRIMARY,
     position: 'absolute',
     top: '50%',
     marginTop: -DOT_SIZE / 2,
@@ -292,7 +297,7 @@ const s = StyleSheet.create({
     width: DOT_TERMINAL_SIZE,
     height: DOT_TERMINAL_SIZE,
     borderRadius: DOT_TERMINAL_SIZE / 2,
-    backgroundColor: JR_GREEN,
+    backgroundColor: WF_PRIMARY,
     position: 'absolute',
     top: '50%',
     marginTop: -DOT_TERMINAL_SIZE / 2,
@@ -301,28 +306,28 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   dotCurrent: {
-    borderColor: CORAL,
-    backgroundColor: CORAL,
+    borderColor: WF_ERROR,
+    backgroundColor: WF_ERROR,
   },
   dotPassed: {
-    borderColor: '#D1D5DB',
-    backgroundColor: '#D1D5DB',
+    borderColor: WF_BORDER,
+    backgroundColor: WF_BORDER,
   },
   dotText: {
     fontSize: 6,
-    color: JR_GREEN,
+    color: WF_PRIMARY,
     fontWeight: '900',
   },
   dotTerminalText: {
     fontSize: 10,
-    color: BG_WHITE,
+    color: WF_WHITE,
     fontWeight: '900',
   },
   dotCurrentText: {
-    color: BG_WHITE,
+    color: WF_WHITE,
   },
   dotPassedText: {
-    color: BG_WHITE,
+    color: WF_WHITE,
   },
 
   // --- 情報エリア ---
@@ -331,7 +336,7 @@ const s = StyleSheet.create({
     paddingVertical: 8,
     paddingLeft: 4,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: HAIRLINE,
+    borderBottomColor: WF_BORDER,
   },
   infoCurrent: {
     backgroundColor: 'rgba(227, 89, 110, 0.06)',
@@ -345,7 +350,7 @@ const s = StyleSheet.create({
     gap: 6,
   },
   stepName: {
-    color: DEEP_NAVY,
+    color: WF_TEXT,
     fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -356,45 +361,45 @@ const s = StyleSheet.create({
     fontSize: 15,
   },
   stepNameCurrent: {
-    color: CORAL,
+    color: WF_ERROR,
     fontWeight: '800',
   },
   stepNamePassed: {
-    color: '#9CA3AF',
+    color: WF_TEXT_MUTED,
   },
 
   // --- バッジ ---
   badge: {
-    backgroundColor: JR_GREEN,
+    backgroundColor: WF_PRIMARY,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
   badgeSa: {
-    backgroundColor: '#1D9EBF',
+    backgroundColor: WF_LINE_CYAN,
   },
   badgeJct: {
-    backgroundColor: '#6B7280',
+    backgroundColor: WF_TEXT_MUTED,
   },
   badgeTerminal: {
-    backgroundColor: JR_GREEN,
+    backgroundColor: WF_PRIMARY,
   },
   badgeText: {
-    color: BG_WHITE,
+    color: WF_WHITE,
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   tollBadge: {
-    backgroundColor: 'rgba(53, 168, 110, 0.12)',
+    backgroundColor: WF_PRIMARY_FADE,
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderWidth: 1,
-    borderColor: 'rgba(53, 168, 110, 0.3)',
+    borderColor: WF_PRIMARY_FADE_STRONG,
   },
   tollBadgeText: {
-    color: JR_GREEN,
+    color: WF_PRIMARY,
     fontSize: 9,
     fontWeight: '700',
   },
@@ -406,12 +411,12 @@ const s = StyleSheet.create({
     marginTop: 2,
   },
   meta: {
-    color: '#6B7280',
+    color: WF_TEXT_MUTED,
     fontSize: 11,
     fontWeight: '500',
   },
   metaPassed: {
-    color: '#D1D5DB',
+    color: WF_BORDER,
   },
 
   // --- 区間情報 ---
@@ -424,10 +429,10 @@ const s = StyleSheet.create({
   segmentLine: {
     width: 16,
     height: 1,
-    backgroundColor: HAIRLINE,
+    backgroundColor: WF_BORDER,
   },
   segmentText: {
-    color: '#9CA3AF',
+    color: WF_TEXT_MUTED,
     fontSize: 10,
     fontWeight: '500',
   },

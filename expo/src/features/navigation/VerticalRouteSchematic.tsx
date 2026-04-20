@@ -1,7 +1,14 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RouteStep } from './navigationApiClient';
-import { JR_LINE_ORANGE, JR_TEXT_ON_GREEN } from './jrNavTheme';
+import {
+  WF_DEST_BG,
+  WF_PRIMARY,
+  WF_TAG_WORK,
+  WF_TEXT,
+  WF_TEXT_MUTED,
+  WF_WHITE,
+} from './wireframeTheme';
 import { formatDurationJa } from './routeSummary';
 import { formatHighwayStepTitle } from './routeStepDisplay';
 
@@ -106,19 +113,19 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 24 },
   empty: { padding: 24 },
-  emptyText: { color: '#6B7280', fontSize: 14, lineHeight: 20 },
+  emptyText: { color: WF_TEXT_MUTED, fontSize: 14, lineHeight: 20 },
   banner: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: WF_DEST_BG,
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginHorizontal: 12,
     marginTop: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FCD34D',
+    borderColor: WF_PRIMARY,
   },
-  bannerTitle: { color: '#92400E', fontWeight: '800', fontSize: 13, marginBottom: 4 },
-  bannerSub: { color: '#78350F', fontSize: 12, lineHeight: 18 },
+  bannerTitle: { color: WF_PRIMARY, fontWeight: '800', fontSize: 13, marginBottom: 4 },
+  bannerSub: { color: WF_TEXT, fontSize: 12, lineHeight: 18 },
   schematic: {
     marginTop: 16,
     marginHorizontal: 8,
@@ -134,12 +141,12 @@ const styles = StyleSheet.create({
     zIndex: 4,
   },
   truckBubble: {
-    backgroundColor: JR_TEXT_ON_GREEN,
+    backgroundColor: WF_WHITE,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 2,
-    borderColor: JR_LINE_ORANGE,
+    borderColor: WF_PRIMARY,
     shadowColor: '#000',
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -151,7 +158,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontSize: 10,
     fontWeight: '800',
-    color: '#9A3412',
+    color: WF_TEXT_MUTED,
   },
   row: {
     flexDirection: 'row',
@@ -165,15 +172,15 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     alignItems: 'flex-end',
   },
-  timeText: { fontSize: 12, fontWeight: '800', color: '#34525F' },
+  timeText: { fontSize: 12, fontWeight: '800', color: WF_TEXT },
   rowCenter: { width: 48, alignItems: 'center' },
   nodeDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: JR_TEXT_ON_GREEN,
+    backgroundColor: WF_PRIMARY,
     borderWidth: 2,
-    borderColor: JR_LINE_ORANGE,
+    borderColor: WF_TAG_WORK,
     zIndex: 3,
   },
   nodeDotLg: { width: 16, height: 16, borderRadius: 8 },
@@ -181,7 +188,7 @@ const styles = StyleSheet.create({
     width: SPINE_W,
     flex: 1,
     minHeight: ROW_MIN - 16,
-    backgroundColor: JR_LINE_ORANGE,
+    backgroundColor: WF_PRIMARY,
     marginTop: -1,
     marginBottom: -1,
   },
@@ -192,12 +199,12 @@ const styles = StyleSheet.create({
     paddingTop: 2,
     justifyContent: 'center',
   },
-  nodeName: { fontSize: 15, fontWeight: '800', color: '#34525F' },
+  nodeName: { fontSize: 15, fontWeight: '800', color: WF_TEXT },
   footnote: {
     marginHorizontal: 16,
     marginTop: 16,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: WF_TEXT_MUTED,
     lineHeight: 16,
   },
 });

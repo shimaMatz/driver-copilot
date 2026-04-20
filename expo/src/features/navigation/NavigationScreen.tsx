@@ -3,22 +3,20 @@ import {
   FlatList,
   ListRenderItem,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { LongPressEvent, Marker, Polyline, Region } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NavigationMapView } from './NavigationMapView';
+import type { MapLongPressNativeEvent, NavigationMapRef, NavigationMapRegion } from './navigationMapTypes';
 import { useNavigation } from './useNavigation';
 import type { RouteStep } from './navigationApiClient';
 import { computeRouteProgress } from './routeProgress';
 import { formatDurationJa } from './routeSummary';
 import { formatHighwayStepTitle } from './routeStepDisplay';
-import type { PlaceSuggestion } from './types';
-import { JR_HEADER_GREEN, JR_MUTED_ON_GREEN, JR_TEXT_ON_GREEN } from './jrNavTheme';
 import type { RouteFlowPhase, TopSearchTab } from './routeFlowTypes';
 import {
   RouteProposalView,
@@ -26,31 +24,37 @@ import {
   type ProposalFilterTab,
 } from './RouteProposalView';
 import { DepartureTimeBottomSheet, type DepartureTripKind } from './DepartureTimeBottomSheet';
+import { HighwayGuidanceShell } from './HighwayGuidanceShell';
 import { RouteTabListHeader } from './RouteTabListHeader';
 import { SearchBottomSheet } from './SearchBottomSheet';
 import { TopSearchTabs } from './TopSearchTabs';
+import { SaPaInfoWireframe } from './SaPaInfoWireframe';
+import { SettingsWireframe } from './SettingsWireframe';
 import {
-  TD_ACCENT,
-  TD_BG,
-  TD_TAB_BAR,
-  TD_TEXT,
-  TD_TEXT_MUTED,
-} from './transitDarkTheme';
-import {
-  isSaOrPa,
-  stubParkingGuide,
-  stubSaPaCongestion,
-  stubToiletGuide,
-} from './saPaStubInfo';
+  WF_BG,
+  WF_BORDER,
+  WF_CARD,
+  WF_ERROR,
+  WF_LINE_CYAN,
+  WF_PRIMARY,
+  WF_PRIMARY_FADE,
+  WF_PRIMARY_FADE_STRONG,
+  WF_SECTION_BG,
+  WF_TEXT,
+  WF_TEXT_MUTED,
+  WF_WHITE,
+} from './wireframeTheme';
 import { useTruckProfile } from './useTruckProfile';
 
 type BottomTab = 'route' | 'facility' | 'more';
 type BottomSheetMode = 'destination' | 'waypoint' | 'departureTime' | null;
 
-const TAB_ITEMS: { key: BottomTab; label: string; }[] = [
-  { key: 'route', label: '経路'},
-  { key: 'facility', label: 'SA/PA情報'},
-  { key: 'more', label: '設定'},
+type IonName = React.ComponentProps<typeof Ionicons>['name'];
+
+const TAB_ITEMS: { key: BottomTab; label: string; iconOutline: IonName; iconFilled: IonName }[] = [
+  { key: 'route', label: '経路', iconOutline: 'map-outline', iconFilled: 'map' },
+  { key: 'facility', label: 'SA/PA情報', iconOutline: 'storefront-outline', iconFilled: 'storefront' },
+  { key: 'more', label: '設定', iconOutline: 'settings-outline', iconFilled: 'settings' },
 ];
 
 function formatJapaneseDepartureLine(d: Date, kind: DepartureTripKind = 'departure'): string {
@@ -79,20 +83,9 @@ function formatRouteHeaderTimeLine(d: Date): string {
 
 const ZOOM_FACTOR = 0.55;
 
-type SuggestionRow = { key: string; kind: 'suggestion'; suggestion: PlaceSuggestion };
 type StepRow = { key: string; kind: 'step'; step: RouteStep; index: number };
 
-type MainListItem = SuggestionRow | StepRow;
-
-type CongestionRow = {
-  key: string;
-  step: RouteStep;
-  level: 'empty' | 'normal' | 'busy' | 'full';
-  title: string;
-  detail: string;
-};
-
-type FacilityRow = { key: string; step: RouteStep };
+type MainListItem = StepRow;
 
 function stepTypeLabel(type: RouteStep['type']): string | null {
   switch (type) {
@@ -115,14 +108,9 @@ function stepTypeLabel(type: RouteStep['type']): string | null {
 
 export function NavigationScreen(): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const mapRef = useRef<MapView>(null);
-  const destinationSearchInputRef = useRef<TextInput>(null);
-  const destinationQueryRef = useRef('');
-  const destinationBlurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [destinationFieldOpen, setDestinationFieldOpen] = useState(false);
-  const [destinationFieldFocused, setDestinationFieldFocused] = useState(false);
+  const mapRef = useRef<NavigationMapRef>(null);
   const [mapVisible, setMapVisible] = useState(false);
-  const [selectedDestinationLabel, setSelectedDestinationLabel] = useState<string | null>(null);
+  const [originAddressLine, setOriginAddressLine] = useState('東京都港区六本木 1-6-1');
   const [selectedWaypoints, setSelectedWaypoints] = useState<string[]>([]);
   const [selectedDepartureAt, setSelectedDepartureAt] = useState(() => new Date());
   const [departureTripKind, setDepartureTripKind] = useState<DepartureTripKind>('departure');
@@ -150,7 +138,7 @@ export function NavigationScreen(): React.JSX.Element {
         return [...prev, name];
       });
     } else if (mode === 'destination') {
-      setSelectedDestinationLabel(name);
+      setDestinationQuery(name);
     }
     setBottomSheetMode(null);
   }, []);
@@ -161,7 +149,7 @@ export function NavigationScreen(): React.JSX.Element {
   useEffect(() => {
     bottomSheetModeRef.current = bottomSheetMode;
   }, [bottomSheetMode]);
-  const [mapRegion, setMapRegion] = useState<Region>({
+  const [mapRegion, setMapRegion] = useState<NavigationMapRegion>({
     latitude: 35.681236,
     longitude: 139.767125,
     latitudeDelta: 0.05,
@@ -170,7 +158,7 @@ export function NavigationScreen(): React.JSX.Element {
   const [selectedRouteId, setSelectedRouteId] = useState<'general' | 'toll'>('toll');
   const [bottomTab, setBottomTab] = useState<BottomTab>('route');
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
-  const [topSearchTab, setTopSearchTab] = useState<TopSearchTab>('search');
+  const [topSearchTab, setTopSearchTab] = useState<TopSearchTab>('editor');
   const [routeFlowPhase, setRouteFlowPhase] = useState<RouteFlowPhase>('minimal');
   const [proposalFilter, setProposalFilter] = useState<ProposalFilterTab>('all');
 
@@ -182,12 +170,9 @@ export function NavigationScreen(): React.JSX.Element {
     stopNavigation,
     currentLocation,
     destination,
-    setDestination,
     destinationQuery,
     setDestinationQuery,
-    suggestions,
     isSuggesting,
-    chooseSuggestion,
     waypoints,
     addWaypoint,
     generalRoute,
@@ -229,33 +214,10 @@ export function NavigationScreen(): React.JSX.Element {
       return [];
     }
     if (routeFlowPhase === 'guidance' && destination) {
-      const steps = activeRoute?.steps ?? [];
-      return steps.map((step, index) => ({
-        key: `step-${index}-${step.name}`,
-        kind: 'step' as const,
-        step,
-        index,
-      }));
-    }
-    if (!destination) {
-      if (routeFlowPhase === 'minimal' && !destinationFieldOpen) {
-        return [];
-      }
-      return suggestions.map(s => ({
-        key: s.placeId,
-        kind: 'suggestion' as const,
-        suggestion: s,
-      }));
+      return [];
     }
     return [];
-  }, [
-    bottomTab,
-    routeFlowPhase,
-    destination,
-    destinationFieldOpen,
-    suggestions,
-    activeRoute?.steps,
-  ]);
+  }, [bottomTab, routeFlowPhase, destination]);
 
   const proposalColumns: ProposalColumnModel[] = useMemo(() => {
     const tollMin = tollRoute
@@ -365,7 +327,7 @@ export function NavigationScreen(): React.JSX.Element {
   }, [mapVisible, isNavigating, currentLocation]);
 
   const handleMapLongPress = useCallback(
-    (event: LongPressEvent) => {
+    (event: MapLongPressNativeEvent) => {
       const p = event.nativeEvent.coordinate;
       addWaypoint({ lat: p.latitude, lng: p.longitude });
     },
@@ -398,37 +360,22 @@ export function NavigationScreen(): React.JSX.Element {
   }, [currentLocation]);
 
   const hasDestination = destination !== null;
-  destinationQueryRef.current = destinationQuery;
 
-  const clearDestinationBlurTimer = useCallback(() => {
-    if (destinationBlurTimerRef.current) {
-      clearTimeout(destinationBlurTimerRef.current);
-      destinationBlurTimerRef.current = null;
-    }
-  }, []);
+  const swapOriginDestination = useCallback(() => {
+    const q = destinationQuery.trim();
+    const o = originAddressLine;
+    setOriginAddressLine(q || '現在地付近');
+    setDestinationQuery(o);
+    openBottomSheet('destination');
+  }, [destinationQuery, originAddressLine, openBottomSheet, setDestinationQuery]);
 
-  const scheduleCloseDestinationFieldIfEmpty = useCallback(() => {
-    clearDestinationBlurTimer();
-    destinationBlurTimerRef.current = setTimeout(() => {
-      destinationBlurTimerRef.current = null;
-      if (destinationQueryRef.current.trim() === '') {
-        setDestinationFieldOpen(false);
-      }
-    }, 220);
-  }, [clearDestinationBlurTimer]);
-
-  useEffect(
-    () => () => {
-      clearDestinationBlurTimer();
+  const onApplyRecentSearch = useCallback(
+    (query: string) => {
+      setTopSearchTab('editor');
+      setDestinationQuery(query);
     },
-    [clearDestinationBlurTimer],
+    [setDestinationQuery],
   );
-
-  useEffect(() => {
-    if (destinationQuery.trim().length > 0) {
-      setDestinationFieldOpen(true);
-    }
-  }, [destinationQuery]);
 
   const routeProgress = useMemo(
     () =>
@@ -440,61 +387,17 @@ export function NavigationScreen(): React.JSX.Element {
     [currentLocation, activeRoute?.steps, activeRoute?.polylinePoints],
   );
 
-  const congestionRows: CongestionRow[] = useMemo(() => {
-    const steps = activeRoute?.steps ?? [];
-    return steps.filter(isSaOrPa).map((step, i) => {
-      const c = stubSaPaCongestion(step.name);
-      return {
-        key: `cong-${i}-${step.name}`,
-        step,
-        level: c.level,
-        title: c.title,
-        detail: c.detail,
-      };
-    });
-  }, [activeRoute?.steps]);
-
-  const facilityRows: FacilityRow[] = useMemo(() => {
-    const steps = activeRoute?.steps ?? [];
-    return steps.filter(isSaOrPa).map((step, i) => ({
-      key: `fac-${i}-${step.name}`,
-      step,
-    }));
-  }, [activeRoute?.steps]);
-
   const routeListHeader = useMemo(
     () => (
       <RouteTabListHeader
-        insetsTop={insets.top}
         topSearchTab={topSearchTab}
-        onTopSearchTab={setTopSearchTab}
-        routeFlowPhase={routeFlowPhase}
         hasDestination={hasDestination}
         destinationQuery={destinationQuery}
-        destinationFieldOpen={destinationFieldOpen}
-        destinationFieldFocused={destinationFieldFocused}
-        destinationSearchInputRef={destinationSearchInputRef}
-        setDestinationQuery={setDestinationQuery}
-        onOpenDestinationField={() => {
-          clearDestinationBlurTimer();
-          setDestinationFieldOpen(true);
-          requestAnimationFrame(() => destinationSearchInputRef.current?.focus());
-        }}
-        onDestinationFocus={() => {
-          clearDestinationBlurTimer();
-          setDestinationFieldOpen(true);
-          setDestinationFieldFocused(true);
-        }}
-        onDestinationBlur={() => {
-          setDestinationFieldFocused(false);
-          scheduleCloseDestinationFieldIfEmpty();
-        }}
         isSuggesting={isSuggesting}
         isFetchingRoute={isFetchingRoute}
         tollRoute={tollRoute}
         generalRoute={generalRoute}
         onPressGoProposals={() => setRouteFlowPhase('proposals')}
-        onOpenMap={() => setMapVisible(true)}
         onOpenBottomSheet={(mode: 'destination' | 'waypoint') => openBottomSheet(mode)}
         onOpenDepartureBottomSheet={() => openBottomSheet('departureTime')}
         routeTimePrimaryLabel={
@@ -503,60 +406,29 @@ export function NavigationScreen(): React.JSX.Element {
         routeTimeKindLabel={
           departureTimeCommitted ? (departureTripKind === 'arrival' ? '到着' : '出発') : '出発'
         }
-        selectedDestinationLabel={selectedDestinationLabel}
         selectedWaypoints={selectedWaypoints}
         onRemoveWaypoint={onRemoveWaypoint}
-        truckProfileLoaded={truckProfileLoaded}
-        truckLenM={truckProfile.lengthM}
-        truckWidM={truckProfile.widthM}
-        truckHgtM={truckProfile.heightM}
-        onChangeDestination={() => {
-          setDestination(null);
-          setDestinationQuery('');
-          clearDestinationBlurTimer();
-          setDestinationFieldOpen(true);
-          requestAnimationFrame(() => destinationSearchInputRef.current?.focus());
-        }}
-        isNavigating={isNavigating}
-        stopNavigation={stopNavigation}
+        originAddressLine={originAddressLine}
+        onSwapOriginDestination={swapOriginDestination}
+        onApplyRecentSearch={onApplyRecentSearch}
         error={error}
-        congestionRows={congestionRows}
-        routeProgress={routeProgress ?? null}
-        currentLocation={currentLocation}
-        activeSteps={activeRoute?.steps ?? []}
-        listDataStepCount={listData.filter(i => i.kind === 'step').length}
       />
     ),
     [
       hasDestination,
       destinationQuery,
-      destinationFieldOpen,
-      destinationFieldFocused,
-      isNavigating,
       isSuggesting,
       isFetchingRoute,
       error,
-      activeRoute,
-      stopNavigation,
-      listData,
-      setDestination,
       setDestinationQuery,
-      truckProfileLoaded,
-      truckProfile.lengthM,
-      truckProfile.widthM,
-      truckProfile.heightM,
       insets.top,
-      clearDestinationBlurTimer,
-      scheduleCloseDestinationFieldIfEmpty,
       topSearchTab,
-      routeFlowPhase,
       tollRoute,
       generalRoute,
-      congestionRows,
-      routeProgress,
-      currentLocation,
       openBottomSheet,
-      selectedDestinationLabel,
+      originAddressLine,
+      swapOriginDestination,
+      onApplyRecentSearch,
       selectedWaypoints,
       onRemoveWaypoint,
       departureTimeCommitted,
@@ -565,84 +437,8 @@ export function NavigationScreen(): React.JSX.Element {
     ],
   );
 
-  const settingsListHeader = useMemo(
-    () => (
-      <View>
-        <View style={styles.settingsSection}>
-          <Text style={styles.settingsSectionTitle}>トラックのサイズ</Text>
-          <Text style={styles.settingsSectionLead}>
-            制限道路の判定などに使う想定の車両寸法です（現状は保存のみ。ルート API 連携は今後拡張可能）。
-          </Text>
-          <View style={styles.dimRow}>
-            <Text style={styles.dimLabel}>全長（m）</Text>
-            <TextInput
-              value={truckLen}
-              onChangeText={setTruckLen}
-              keyboardType="decimal-pad"
-              placeholder="12"
-              placeholderTextColor="#9CA3AF"
-              style={styles.dimInput}
-            />
-          </View>
-          <View style={styles.dimRow}>
-            <Text style={styles.dimLabel}>車幅（m）</Text>
-            <TextInput
-              value={truckWid}
-              onChangeText={setTruckWid}
-              keyboardType="decimal-pad"
-              placeholder="2.5"
-              placeholderTextColor="#9CA3AF"
-              style={styles.dimInput}
-            />
-          </View>
-          <View style={styles.dimRow}>
-            <Text style={styles.dimLabel}>車高（m）</Text>
-            <TextInput
-              value={truckHgt}
-              onChangeText={setTruckHgt}
-              keyboardType="decimal-pad"
-              placeholder="3.8"
-              placeholderTextColor="#9CA3AF"
-              style={styles.dimInput}
-            />
-          </View>
-          {truckSaveHint ? <Text style={styles.saveHint}>{truckSaveHint}</Text> : null}
-          <TouchableOpacity style={styles.saveTruckBtn} onPress={() => void handleSaveTruckProfile()}>
-            <Text style={styles.saveTruckBtnText}>寸法を保存</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    ),
-    [truckLen, truckWid, truckHgt, truckSaveHint, handleSaveTruckProfile, insets.top],
-  );
-
   const renderItem: ListRenderItem<MainListItem> = useCallback(
     ({ item }) => {
-      if (item.kind === 'suggestion') {
-        return (
-          <TouchableOpacity
-            style={bottomTab === 'route' ? styles.listRowOnDark : styles.listRow}
-            onPress={() => void chooseSuggestion(item.suggestion)}
-            accessibilityRole="button"
-          >
-            <View style={styles.listRowMain}>
-              <Text
-                style={bottomTab === 'route' ? styles.listRowTitleOnDark : styles.listRowTitle}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {item.suggestion.description}
-              </Text>
-            </View>
-            <Text
-              style={bottomTab === 'route' ? styles.listRowChevronOnDark : styles.listRowChevron}
-              accessibilityLabel=""
-            >
-              ›
-            </Text>
-          </TouchableOpacity>
-        );
-      }
       const { step, index } = item;
       const steps = activeRoute?.steps ?? [];
       const next = steps[index + 1];
@@ -718,57 +514,42 @@ export function NavigationScreen(): React.JSX.Element {
         </View>
       );
     },
-    [activeRoute?.steps, bottomTab, chooseSuggestion, routeProgress],
+    [activeRoute?.steps, routeProgress],
   );
-
-  const facilityListEmpty = useMemo(
-    () => (
-      <View style={styles.emptyBox}>
-        <Text style={styles.emptyText}>
-          「経路」でルートを表示すると、休憩所ごとの「駐車場の見方」「トイレの探し方」を案内します。
-        </Text>
-      </View>
-    ),
-    [],
-  );
-
-  const renderFacilityRow = useCallback(({ item }: { item: FacilityRow }) => {
-    const short = formatHighwayStepTitle(item.step.name, item.step.type);
-    return (
-      <View style={styles.facilityCard}>
-        <Text style={styles.facilityCardTitle}>{short}</Text>
-        <Text style={styles.facilitySectionHead}>はじめに（迷わないために）</Text>
-        <Text style={styles.facilityBody}>
-          SA/PA は施設ごとに建物の位置が違います。まずは「トイレ棟」と「給油所」のどちら側かを意識すると分かりやすいです。以下はあくまで目安で、必ず現地の案内図・表示を確認してください。
-        </Text>
-        <Text style={styles.facilitySectionHead}>大型車の駐車の考え方</Text>
-        <Text style={styles.facilityBody}>{stubParkingGuide(item.step.name, item.step.type)}</Text>
-        <Text style={styles.facilitySectionHead}>トイレの探し方</Text>
-        <Text style={styles.facilityBody}>{stubToiletGuide(item.step.name)}</Text>
-      </View>
-    );
-  }, []);
-
 
   const listEmpty = useMemo(() => {
     return null;
-  }, [hasDestination, isFetchingRoute, destinationFieldOpen, routeFlowPhase]);
+  }, [hasDestination, isFetchingRoute, routeFlowPhase]);
 
   const hasProposalRoutes = proposalColumns.some(c => c.route);
 
   return (
     <View style={styles.screenRoot}>
-      <View
-        style={[
-          styles.contentFill,
-          bottomTab === 'route' ? styles.contentFillDark : null,
-        ]}
-      >
-        <TopSearchTabs
-          insetsTop={insets.top}
-          topSearchTab={topSearchTab}
-          onTopSearchTab={setTopSearchTab}
-        />
+      <View style={styles.contentFill}>
+        {bottomTab === 'route' && routeFlowPhase !== 'guidance' ? (
+          <TopSearchTabs
+            insetsTop={insets.top}
+            topSearchTab={topSearchTab}
+            onTopSearchTab={setTopSearchTab}
+          />
+        ) : null}
+
+        {bottomTab === 'route' && routeFlowPhase === 'guidance' && destination ? (
+          <HighwayGuidanceShell
+            steps={activeRoute?.steps ?? []}
+            routeProgress={routeProgress ?? null}
+            currentLocation={currentLocation}
+            distanceMeters={activeRoute?.distanceMeters ?? 0}
+            durationSeconds={activeRoute?.durationSeconds ?? 0}
+            destinationLabel={destinationQuery.trim() || '目的地'}
+            isNavigating={isNavigating}
+            insetsTop={insets.top}
+            insetsBottom={insets.bottom}
+            onOpenMap={() => setMapVisible(true)}
+            onStopNavigation={stopNavigation}
+            error={error}
+          />
+        ) : null}
 
         {bottomTab === 'route' && routeFlowPhase === 'proposals' ? (
           hasProposalRoutes ? (
@@ -798,7 +579,7 @@ export function NavigationScreen(): React.JSX.Element {
           )
         ) : null}
 
-        {bottomTab === 'route' && routeFlowPhase !== 'proposals' ? (
+        {bottomTab === 'route' && routeFlowPhase !== 'proposals' && routeFlowPhase !== 'guidance' ? (
           <FlatList
             style={styles.flatList}
             contentContainerStyle={styles.flatListContent}
@@ -813,24 +594,27 @@ export function NavigationScreen(): React.JSX.Element {
         ) : null}
 
         {bottomTab === 'facility' ? (
-          <FlatList
-            style={styles.flatList}
-            contentContainerStyle={styles.flatListContent}
-            data={facilityRows}
-            keyExtractor={i => i.key}
-            renderItem={renderFacilityRow}
-            ListEmptyComponent={facilityListEmpty}
+          <SaPaInfoWireframe
+            insetsTop={insets.top}
+            insetsBottom={insets.bottom}
+            currentLocation={currentLocation}
+            routeSteps={activeRoute?.steps ?? []}
           />
         ) : null}
 
         {bottomTab === 'more' ? (
-          <ScrollView
-            style={styles.flatList}
-            contentContainerStyle={styles.flatListContent}
-            keyboardShouldPersistTaps="handled"
-          >
-            {settingsListHeader}
-          </ScrollView>
+          <SettingsWireframe
+            insetsTop={insets.top}
+            insetsBottom={insets.bottom}
+            truckLen={truckLen}
+            truckWid={truckWid}
+            truckHgt={truckHgt}
+            setTruckLen={setTruckLen}
+            setTruckWid={setTruckWid}
+            setTruckHgt={setTruckHgt}
+            truckSaveHint={truckSaveHint}
+            onSaveTruck={() => void handleSaveTruckProfile()}
+          />
         ) : null}
       </View>
 
@@ -838,6 +622,7 @@ export function NavigationScreen(): React.JSX.Element {
         <View style={styles.tabBar}>
           {TAB_ITEMS.map(t => {
             const active = bottomTab === t.key;
+            const color = active ? WF_PRIMARY : WF_TEXT_MUTED;
             return (
               <TouchableOpacity
                 key={t.key}
@@ -845,9 +630,13 @@ export function NavigationScreen(): React.JSX.Element {
                 onPress={() => setBottomTab(t.key)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
+                accessibilityLabel={t.label}
               >
                 <View style={styles.tabItemInner}>
-                  <Text style={[styles.tabLabelJr, active && styles.tabLabelJrActive]}>{t.label}</Text>
+                  <Ionicons name={active ? t.iconFilled : t.iconOutline} size={22} color={color} />
+                  <Text style={[styles.tabBarLabel, active && styles.tabBarLabelActive]} numberOfLines={1}>
+                    {t.label}
+                  </Text>
                 </View>
               </TouchableOpacity>
             );
@@ -871,54 +660,18 @@ export function NavigationScreen(): React.JSX.Element {
 
       <Modal visible={mapVisible} animationType="slide" onRequestClose={() => setMapVisible(false)}>
         <View style={styles.mapModalRoot}>
-          <MapView
+          <NavigationMapView
             ref={mapRef}
-            style={StyleSheet.absoluteFillObject}
             mapType={mapType}
-            showsUserLocation
-            region={mapRegion}
+            mapRegion={mapRegion}
             onRegionChangeComplete={setMapRegion}
             onLongPress={handleMapLongPress}
-          >
-            {currentLocation && (
-              <Marker
-                coordinate={{ latitude: currentLocation.lat, longitude: currentLocation.lng }}
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-              >
-                <View style={styles.vehicleArrow}>
-                  <Text style={styles.vehicleArrowGlyph}>▲</Text>
-                </View>
-              </Marker>
-            )}
-            {destination && (
-              <Marker
-                coordinate={{ latitude: destination.lat, longitude: destination.lng }}
-                anchor={{ x: 0.5, y: 0.5 }}
-                tracksViewChanges={false}
-              >
-                <View style={styles.goalBubble}>
-                  <Text style={styles.goalLetter}>G</Text>
-                </View>
-              </Marker>
-            )}
-            {waypoints.map((w, idx) => (
-              <Marker
-                key={`wp-${idx}`}
-                coordinate={{ latitude: w.lat, longitude: w.lng }}
-                pinColor="#FB8C00"
-                title={`経由地 ${idx + 1}`}
-              />
-            ))}
-            {activeRoute?.segments.map((seg, i) => (
-              <Polyline
-                key={`seg-${selectedRouteId}-${i}`}
-                coordinates={seg.points.map(p => ({ latitude: p.lat, longitude: p.lng }))}
-                strokeWidth={5}
-                strokeColor={seg.isToll ? '#35A86E' : '#1D9EBF'}
-              />
-            ))}
-          </MapView>
+            currentLocation={currentLocation}
+            destination={destination}
+            waypoints={waypoints}
+            activeRoute={activeRoute}
+            selectedRouteId={selectedRouteId}
+          />
 
           <View
             style={[styles.mapModalTopChrome, { paddingTop: insets.top }]}
@@ -974,56 +727,55 @@ export function NavigationScreen(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  screenRoot: { flex: 1, backgroundColor: TD_TAB_BAR },
-  contentFill: { flex: 1, backgroundColor: '#EFEFF4' },
-  contentFillDark: { flex: 1, backgroundColor: TD_BG },
+  screenRoot: { flex: 1, backgroundColor: WF_BG },
+  contentFill: { flex: 1, backgroundColor: WF_BG },
   proposalFallback: {
     flex: 1,
-    backgroundColor: TD_BG,
+    backgroundColor: WF_BG,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  proposalFallbackText: { color: TD_TEXT_MUTED, fontSize: 15, textAlign: 'center', fontWeight: '600' },
+  proposalFallbackText: { color: WF_TEXT_MUTED, fontSize: 15, textAlign: 'center', fontWeight: '600' },
   proposalFallbackBtn: {
     marginTop: 20,
-    backgroundColor: TD_ACCENT,
+    backgroundColor: WF_PRIMARY,
     paddingHorizontal: 28,
     paddingVertical: 12,
     borderRadius: 10,
   },
-  proposalFallbackBtnText: { color: '#000', fontSize: 16, fontWeight: '900' },
+  proposalFallbackBtnText: { color: WF_WHITE, fontSize: 16, fontWeight: '900' },
   flatList: { flex: 1 },
   flatListContent: { paddingBottom: 8 },
   flatListFill: { flexGrow: 1, justifyContent: 'center' },
-  tabBody: { flex: 1, backgroundColor: '#EFEFF4' },
+  tabBody: { flex: 1, backgroundColor: WF_BG },
   jrHeaderBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: JR_HEADER_GREEN,
+    backgroundColor: WF_PRIMARY,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   jrHeaderTextCol: { flex: 1, paddingRight: 10 },
-  jrHeaderTitle: { color: JR_TEXT_ON_GREEN, fontSize: 18, fontWeight: '800' },
-  jrHeaderSub: { color: JR_MUTED_ON_GREEN, fontSize: 11, marginTop: 4, fontWeight: '600' },
+  jrHeaderTitle: { color: WF_WHITE, fontSize: 18, fontWeight: '800' },
+  jrHeaderSub: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 4, fontWeight: '600' },
   jrMapBtn: {
     borderWidth: 1,
-    borderColor: JR_TEXT_ON_GREEN,
+    borderColor: WF_WHITE,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  jrMapBtnText: { color: JR_TEXT_ON_GREEN, fontWeight: '800', fontSize: 13 },
+  jrMapBtnText: { color: WF_WHITE, fontWeight: '800', fontSize: 13 },
   jrHeroCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     marginHorizontal: 12,
     marginTop: 12,
     padding: 16,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
   },
   jrHeroRow: {
     flexDirection: 'row',
@@ -1033,31 +785,31 @@ const styles = StyleSheet.create({
   },
   jrHeroCol: { flex: 1, minWidth: 0 },
   jrHeroColEnd: { alignItems: 'flex-end' },
-  jrHeroKana: { color: '#6B7280', fontSize: 11, fontWeight: '700' },
-  jrHeroPlace: { color: JR_HEADER_GREEN, fontSize: 20, fontWeight: '800', marginTop: 2 },
+  jrHeroKana: { color: WF_TEXT_MUTED, fontSize: 11, fontWeight: '700' },
+  jrHeroPlace: { color: WF_PRIMARY, fontSize: 20, fontWeight: '800', marginTop: 2 },
   jrHeroDestTap: {
     maxWidth: '100%',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: 'rgba(0, 77, 46, 0.35)',
+    borderColor: 'rgba(74, 119, 60, 0.35)',
     borderStyle: 'dashed',
-    backgroundColor: 'rgba(53, 168, 110, 0.06)',
+    backgroundColor: WF_PRIMARY_FADE,
   },
   jrHeroDestTapPressed: {
-    backgroundColor: 'rgba(53, 168, 110, 0.14)',
-    borderColor: JR_HEADER_GREEN,
+    backgroundColor: WF_PRIMARY_FADE_STRONG,
+    borderColor: WF_PRIMARY,
     borderStyle: 'solid',
   },
   jrHeroPlaceUnset: {
-    color: JR_HEADER_GREEN,
+    color: WF_PRIMARY,
     fontSize: 20,
     fontWeight: '800',
     marginTop: 2,
   },
   jrHeroDestHint: {
-    color: '#35A86E',
+    color: WF_PRIMARY,
     fontSize: 11,
     fontWeight: '700',
     marginTop: 4,
@@ -1066,77 +818,77 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: JR_HEADER_GREEN,
+    backgroundColor: WF_PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  jrGoBtnText: { color: JR_TEXT_ON_GREEN, fontSize: 18, fontWeight: '900' },
-  jrHeroHint: { color: '#6B7280', fontSize: 12, marginTop: 12, lineHeight: 18 },
+  jrGoBtnText: { color: WF_WHITE, fontSize: 18, fontWeight: '900' },
+  jrHeroHint: { color: WF_TEXT_MUTED, fontSize: 12, marginTop: 12, lineHeight: 18 },
   jrHeroSearchInline: {
     marginTop: 14,
     paddingTop: 14,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E4E4EA',
+    borderTopColor: WF_BORDER,
   },
   jrHeroSearchLabel: {
-    color: '#34525F',
+    color: WF_TEXT,
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 8,
   },
   jrHeroSearchInput: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: WF_SECTION_BG,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#34525F',
+    color: WF_TEXT,
     fontSize: 17,
   },
   jrHeroSearchInputFocused: {
-    borderColor: JR_HEADER_GREEN,
-    backgroundColor: '#FFFFFF',
+    borderColor: WF_PRIMARY,
+    backgroundColor: WF_CARD,
   },
-  jrHeroSearchStatus: { color: '#6B7280', fontSize: 12, marginTop: 8, fontWeight: '600' },
-  jrHeroSearchFoot: { color: '#6B7280', fontSize: 12, marginTop: 10, lineHeight: 18 },
+  jrHeroSearchStatus: { color: WF_TEXT_MUTED, fontSize: 12, marginTop: 8, fontWeight: '600' },
+  jrHeroSearchFoot: { color: WF_TEXT_MUTED, fontSize: 12, marginTop: 10, lineHeight: 18 },
   jrChipStrip: { paddingHorizontal: 12, paddingVertical: 10, gap: 10 },
   jrChip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginRight: 8,
     borderWidth: 2,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
     maxWidth: 200,
   },
   jrChipActive: {
-    borderColor: JR_HEADER_GREEN,
-    backgroundColor: 'rgba(0, 100, 50, 0.06)',
+    borderColor: WF_PRIMARY,
+    backgroundColor: WF_PRIMARY_FADE,
   },
-  jrChipTitle: { color: '#34525F', fontSize: 14, fontWeight: '800' },
-  jrChipTitleActive: { color: JR_HEADER_GREEN },
-  jrChipSub: { color: '#6B7280', fontSize: 11, marginTop: 4, fontWeight: '600' },
-  jrChipSubActive: { color: '#34525F' },
-  jrChipMeta: { color: '#6B7280', fontSize: 11, marginTop: 6, fontWeight: '700' },
-  jrChipMetaActive: { color: JR_HEADER_GREEN },
+  jrChipTitle: { color: WF_TEXT, fontSize: 14, fontWeight: '800' },
+  jrChipTitleActive: { color: WF_PRIMARY },
+  jrChipSub: { color: WF_TEXT_MUTED, fontSize: 11, marginTop: 4, fontWeight: '600' },
+  jrChipSubActive: { color: WF_TEXT },
+  jrChipMeta: { color: WF_TEXT_MUTED, fontSize: 11, marginTop: 6, fontWeight: '700' },
+  jrChipMetaActive: { color: WF_PRIMARY },
   jrTabScreenHeader: {
-    backgroundColor: JR_HEADER_GREEN,
+    backgroundColor: WF_PRIMARY,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  jrTabScreenTitle: { color: JR_TEXT_ON_GREEN, fontSize: 18, fontWeight: '800' },
-  jrTabScreenSub: { color: JR_MUTED_ON_GREEN, fontSize: 12, marginTop: 6, lineHeight: 17 },
+  jrTabScreenTitle: { color: WF_WHITE, fontSize: 18, fontWeight: '800' },
+  jrTabScreenSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 6, lineHeight: 17 },
   statusCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     marginHorizontal: 12,
     marginTop: 10,
     padding: 14,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
     gap: 12,
   },
   statusIconWrap: {
@@ -1149,22 +901,22 @@ const styles = StyleSheet.create({
   },
   statusIconText: { fontSize: 18, fontWeight: '900' },
   statusBody: { flex: 1, minWidth: 0 },
-  statusName: { color: '#34525F', fontSize: 16, fontWeight: '800' },
-  statusBadge: { color: '#6B7280', fontSize: 11, fontWeight: '700', marginTop: 2 },
-  statusTitle: { color: '#111827', fontSize: 15, fontWeight: '800', marginTop: 6 },
-  statusDetail: { color: '#6B7280', fontSize: 12, lineHeight: 18, marginTop: 4 },
+  statusName: { color: WF_TEXT, fontSize: 16, fontWeight: '800' },
+  statusBadge: { color: WF_TEXT_MUTED, fontSize: 11, fontWeight: '700', marginTop: 2 },
+  statusTitle: { color: WF_TEXT, fontSize: 15, fontWeight: '800', marginTop: 6 },
+  statusDetail: { color: WF_TEXT_MUTED, fontSize: 12, lineHeight: 18, marginTop: 4 },
   facilityCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     marginHorizontal: 12,
     marginTop: 12,
     padding: 16,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
   },
-  facilityCardTitle: { color: JR_HEADER_GREEN, fontSize: 17, fontWeight: '800', marginBottom: 10 },
-  facilitySectionHead: { color: '#34525F', fontSize: 14, fontWeight: '800', marginTop: 12 },
-  facilityBody: { color: '#4B5563', fontSize: 13, lineHeight: 21, marginTop: 6 },
+  facilityCardTitle: { color: WF_PRIMARY, fontSize: 17, fontWeight: '800', marginBottom: 10 },
+  facilitySectionHead: { color: WF_TEXT, fontSize: 14, fontWeight: '800', marginTop: 12 },
+  facilityBody: { color: WF_TEXT_MUTED, fontSize: 13, lineHeight: 21, marginTop: 6 },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1172,139 +924,127 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 6,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E4E4EA',
+    borderBottomColor: WF_BORDER,
   },
   topBarTitles: { flex: 1, paddingRight: 8 },
-  brandLine: { color: '#34525F', fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
-  brandSub: { color: '#6B7280', fontSize: 11, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
+  brandLine: { color: WF_TEXT, fontSize: 17, fontWeight: '800', letterSpacing: 0.3 },
+  brandSub: { color: WF_TEXT_MUTED, fontSize: 11, fontWeight: '600', marginTop: 2, letterSpacing: 0.3 },
   vehicleStrip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E4E4EA',
+    borderBottomColor: WF_BORDER,
   },
-  vehicleStripText: { color: '#58A573', fontSize: 12, fontWeight: '700' },
+  vehicleStripText: { color: WF_PRIMARY, fontSize: 12, fontWeight: '700' },
   mapOpenBtn: {
-    backgroundColor: '#35A86E',
+    backgroundColor: WF_PRIMARY,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     minWidth: 52,
     alignItems: 'center',
   },
-  mapOpenBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
+  mapOpenBtnText: { color: WF_WHITE, fontWeight: '800', fontSize: 13 },
   destinationBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     borderBottomWidth: 1,
-    borderBottomColor: '#E4E4EA',
+    borderBottomColor: WF_BORDER,
     gap: 10,
   },
   destinationBarLeft: { flex: 1 },
-  destinationBarLabel: { color: '#9CA3AF', fontSize: 10, fontWeight: '700', marginBottom: 2 },
-  destinationBarName: { color: '#34525F', fontSize: 15, fontWeight: '700' },
+  destinationBarLabel: { color: WF_TEXT_MUTED, fontSize: 10, fontWeight: '700', marginBottom: 2 },
+  destinationBarName: { color: WF_TEXT, fontSize: 15, fontWeight: '700' },
   destinationChangeBtn: {
-    backgroundColor: '#EFEFF4',
+    backgroundColor: WF_SECTION_BG,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
   },
-  destinationChangeBtnText: { color: '#34525F', fontSize: 13, fontWeight: '700' },
+  destinationChangeBtnText: { color: WF_TEXT, fontSize: 13, fontWeight: '700' },
   errorBanner: {
-    color: '#E3596E',
+    color: WF_ERROR,
     textAlign: 'center',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
   },
   legendRow: {
     flexDirection: 'row',
     gap: 16,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendLine: { width: 24, height: 4, borderRadius: 2 },
-  legendLabel: { color: '#6B7280', fontSize: 11 },
+  legendLabel: { color: WF_TEXT_MUTED, fontSize: 11 },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     borderBottomWidth: 1,
-    borderBottomColor: '#E4E4EA',
+    borderBottomColor: WF_BORDER,
   },
   summaryMain: { flex: 1 },
-  summaryEta: { color: '#34525F', fontSize: 28, fontWeight: '800' },
-  summaryDetail: { color: '#6B7280', fontSize: 13, marginTop: 4 },
-  summaryRoads: { color: '#34525F', fontSize: 14 },
+  summaryEta: { color: WF_TEXT, fontSize: 28, fontWeight: '800' },
+  summaryDetail: { color: WF_TEXT_MUTED, fontSize: 13, marginTop: 4 },
+  summaryRoads: { color: WF_TEXT, fontSize: 14 },
   departBtn: {
-    backgroundColor: '#35A86E',
+    backgroundColor: WF_PRIMARY,
     paddingHorizontal: 22,
     paddingVertical: 12,
     borderRadius: 12,
   },
-  departBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
-  stopBtn: { backgroundColor: '#E3596E' },
+  departBtnText: { color: WF_WHITE, fontWeight: '800', fontSize: 15 },
+  stopBtn: { backgroundColor: WF_ERROR },
   listSectionTitle: {
-    color: '#34525F',
+    color: WF_TEXT,
     fontSize: 12,
     fontWeight: '800',
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 6,
-    backgroundColor: '#EFEFF4',
+    backgroundColor: WF_SECTION_BG,
     letterSpacing: 0.3,
   },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E4E4EA',
+    borderBottomColor: WF_BORDER,
   },
   listRowMain: { flex: 1, paddingRight: 8 },
-  listRowTitle: { color: '#34525F', fontSize: 16, lineHeight: 22, fontWeight: '600' },
-  listRowChevron: { color: '#C7C7CC', fontSize: 22, fontWeight: '300' },
-  listRowOnDark: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2C2C2E',
-    marginHorizontal: 12,
-    marginBottom: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 10,
-  },
-  listRowTitleOnDark: { color: TD_TEXT, fontSize: 16, lineHeight: 22, fontWeight: '600' },
-  listRowChevronOnDark: { color: TD_TEXT_MUTED, fontSize: 22, fontWeight: '300' },
+  listRowTitle: { color: WF_TEXT, fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  listRowChevron: { color: WF_BORDER, fontSize: 22, fontWeight: '300' },
   stepRow: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     paddingVertical: 10,
     paddingRight: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E4E4EA',
+    borderBottomColor: WF_BORDER,
   },
   stepRowOnLeg: {
-    backgroundColor: 'rgba(53, 168, 110, 0.06)',
+    backgroundColor: WF_PRIMARY_FADE,
   },
   stepRowNext: {
     borderLeftWidth: 3,
-    borderLeftColor: '#35A86E',
+    borderLeftColor: WF_PRIMARY,
     paddingLeft: 9,
   },
   stepTimeCol: {
@@ -1313,27 +1053,27 @@ const styles = StyleSheet.create({
     paddingRight: 4,
     justifyContent: 'flex-start',
   },
-  stepTimeMain: { color: '#34525F', fontSize: 14, fontWeight: '800', textAlign: 'right' },
+  stepTimeMain: { color: WF_TEXT, fontSize: 14, fontWeight: '800', textAlign: 'right' },
   stepRail: { width: 36, alignItems: 'center' },
   stepDot: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#35A86E',
+    backgroundColor: WF_PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepDotLg: { width: 30, height: 30, borderRadius: 15 },
-  stepDotText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  stepDotText: { color: WF_WHITE, fontSize: 11, fontWeight: '800' },
   stepLine: {
     width: 3,
     flex: 1,
     minHeight: 24,
-    backgroundColor: '#E4E4EA',
+    backgroundColor: WF_BORDER,
     marginVertical: 2,
   },
   stepBody: { flex: 1, paddingBottom: 4, minWidth: 0 },
-  stepName: { color: '#34525F', fontSize: 15, fontWeight: '700' },
+  stepName: { color: WF_TEXT, fontSize: 15, fontWeight: '700' },
   stepBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1342,95 +1082,99 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   stepBadge: {
-    backgroundColor: '#1D9EBF',
+    backgroundColor: WF_LINE_CYAN,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  stepBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' },
+  stepBadgeText: { color: WF_WHITE, fontSize: 10, fontWeight: '700' },
   tollBadge: {
-    backgroundColor: 'rgba(53, 168, 110, 0.15)',
+    backgroundColor: WF_PRIMARY_FADE_STRONG,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  tollBadgeText: { color: '#35A86E', fontSize: 10, fontWeight: '700' },
+  tollBadgeText: { color: WF_PRIMARY, fontSize: 10, fontWeight: '700' },
   restPlanBadge: {
     backgroundColor: 'rgba(29, 158, 191, 0.18)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
-  restPlanBadgeText: { color: '#1D9EBF', fontSize: 10, fontWeight: '800' },
-  stepMeta: { color: '#6B7280', fontSize: 12, marginTop: 4 },
-  stepSegment: { color: '#58A573', fontSize: 11, marginTop: 6 },
+  restPlanBadgeText: { color: WF_LINE_CYAN, fontSize: 10, fontWeight: '800' },
+  stepMeta: { color: WF_TEXT_MUTED, fontSize: 12, marginTop: 4 },
+  stepSegment: { color: WF_PRIMARY, fontSize: 11, marginTop: 6 },
   emptyBox: { padding: 32, alignItems: 'center' },
-  emptyText: { color: '#9CA3AF', fontSize: 14, textAlign: 'center' },
-  emptyBoxTransit: { padding: 28, alignItems: 'center', backgroundColor: TD_BG },
-  emptyTextTransit: { color: TD_TEXT_MUTED, fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  emptyText: { color: WF_TEXT_MUTED, fontSize: 14, textAlign: 'center' },
+  emptyBoxTransit: { padding: 28, alignItems: 'center', backgroundColor: WF_BG },
+  emptyTextTransit: { color: WF_TEXT_MUTED, fontSize: 14, textAlign: 'center', lineHeight: 21 },
   settingsSection: {
     marginHorizontal: 12,
     marginTop: 10,
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
   },
   settingsSectionMuted: {
     marginHorizontal: 12,
     marginTop: 12,
     marginBottom: 24,
     padding: 16,
-    backgroundColor: '#EFEFF4',
+    backgroundColor: WF_SECTION_BG,
     borderRadius: 8,
   },
-  settingsSectionTitle: { color: '#34525F', fontSize: 15, fontWeight: '800', marginBottom: 8 },
-  settingsSectionLead: { color: '#6B7280', fontSize: 12, lineHeight: 18, marginBottom: 12 },
-  settingsBody: { color: '#6B7280', fontSize: 13, lineHeight: 20 },
+  settingsSectionTitle: { color: WF_TEXT, fontSize: 15, fontWeight: '800', marginBottom: 8 },
+  settingsSectionLead: { color: WF_TEXT_MUTED, fontSize: 12, lineHeight: 18, marginBottom: 12 },
+  settingsBody: { color: WF_TEXT_MUTED, fontSize: 13, lineHeight: 20 },
   dimRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
     gap: 12,
   },
-  dimLabel: { width: 88, color: '#34525F', fontSize: 14, fontWeight: '700' },
+  dimLabel: { width: 88, color: WF_TEXT, fontSize: 14, fontWeight: '700' },
   dimInput: {
     flex: 1,
-    backgroundColor: '#EFEFF4',
+    backgroundColor: WF_SECTION_BG,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E4E4EA',
+    borderColor: WF_BORDER,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: '#34525F',
+    color: WF_TEXT,
     fontSize: 16,
   },
-  saveHint: { color: '#35A86E', fontSize: 12, fontWeight: '700', marginBottom: 8 },
+  saveHint: { color: WF_PRIMARY, fontSize: 12, fontWeight: '700', marginBottom: 8 },
   saveTruckBtn: {
     marginTop: 4,
-    backgroundColor: '#35A86E',
+    backgroundColor: WF_PRIMARY,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
-  saveTruckBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 15 },
+  saveTruckBtnText: { color: WF_WHITE, fontWeight: '800', fontSize: 15 },
   fixedFooter: {
-    backgroundColor: TD_TAB_BAR,
+    backgroundColor: WF_CARD,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: WF_BORDER,
   },
   tabBar: {
     flexDirection: 'row',
-    paddingTop: 2,
+    paddingTop: 3,
+    paddingBottom: 0,
   },
   tabItem: { flex: 1, alignItems: 'center', minWidth: 0 },
-  tabItemInner: { alignItems: 'center', paddingVertical: 6 },
-  tabLabelJr: {
-    color: TD_TEXT_MUTED,
-    fontSize: 15,
-    fontWeight: '800',
+  tabItemInner: { alignItems: 'center', justifyContent: 'center', paddingVertical: 2 },
+  tabBarLabel: {
+    marginTop: 4,
+    color: WF_TEXT_MUTED,
+    fontSize: 10,
+    fontWeight: '600',
     textAlign: 'center',
   },
-  tabLabelJrActive: { color: TD_ACCENT },
+  tabBarLabelActive: { color: WF_PRIMARY },
   mapModalRoot: { flex: 1, backgroundColor: '#000' },
   mapModalTopChrome: {
     position: 'absolute',
@@ -1439,7 +1183,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 20,
     elevation: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
   },
   mapModalHeader: {
     flexDirection: 'row',
@@ -1447,18 +1191,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
   },
   mapCloseBtn: { padding: 12 },
-  mapCloseBtnText: { color: '#35A86E', fontSize: 16, fontWeight: '700' },
-  mapModalTitle: { color: '#34525F', fontSize: 16, fontWeight: '800' },
+  mapCloseBtnText: { color: WF_PRIMARY, fontSize: 16, fontWeight: '700' },
+  mapModalTitle: { color: WF_TEXT, fontSize: 16, fontWeight: '800' },
   mapHeaderSpacer: { width: 60 },
   mapHintBar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: WF_CARD,
     paddingHorizontal: 14,
     paddingVertical: 6,
   },
-  mapHintModalText: { color: '#6B7280', fontSize: 12 },
+  mapHintModalText: { color: WF_TEXT_MUTED, fontSize: 12 },
   leftRail: { position: 'absolute', left: 10, top: '38%', zIndex: 30, elevation: 30 },
   railCluster: {
     backgroundColor: 'rgba(17,24,39,0.9)',
@@ -1494,30 +1238,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#35A86E',
+    backgroundColor: WF_PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
   },
-  locateFabText: { color: '#FFFFFF', fontSize: 22, fontWeight: '800' },
-  vehicleArrow: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  vehicleArrowGlyph: {
-    color: '#ef4444',
-    fontSize: 26,
-    marginTop: -4,
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  goalBubble: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ec4899',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  goalLetter: { color: '#fff', fontWeight: '900', fontSize: 16 },
+  locateFabText: { color: WF_WHITE, fontSize: 22, fontWeight: '800' },
 });

@@ -6,8 +6,6 @@ import {
   fetchPlaceSuggestions,
   resolvePlaceToLatLng,
 } from './navigationApiClient';
-import { PlaceSuggestion } from './types';
-
 export interface LatLng {
   lat: number;
   lng: number;
@@ -20,7 +18,6 @@ export function useNavigation() {
   const [destination, setDestinationState] = useState<LatLng | null>(null);
   const [waypoints, setWaypoints] = useState<LatLng[]>([]);
   const [destinationQuery, setDestinationQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [generalRoute, setGeneralRoute] = useState<DirectionsRoute | null>(null);
   const [tollRoute, setTollRoute] = useState<DirectionsRoute | null>(null);
@@ -79,33 +76,40 @@ export function useNavigation() {
     setWaypoints(prev => [...prev, point]);
   }, []);
 
+  /** 入力文字列から候補 API の先頭をジオコーディングし、目的地を確定（一覧は出さない） */
   useEffect(() => {
     const q = destinationQuery.trim();
     if (q.length < 2) {
-      setSuggestions([]);
+      setIsSuggesting(false);
       return;
     }
+    if (destination !== null) {
+      return;
+    }
+    let cancelled = false;
     const timer = setTimeout(() => {
       void (async () => {
         setIsSuggesting(true);
         try {
           const list = await fetchPlaceSuggestions(q);
-          setSuggestions(list);
+          if (cancelled) return;
+          const first = list[0];
+          if (!first) return;
+          const latlng = await resolvePlaceToLatLng(first.placeId);
+          if (cancelled) return;
+          if (!latlng) return;
+          setDestinationState(latlng);
+          setDestinationQuery(first.description);
         } finally {
-          setIsSuggesting(false);
+          if (!cancelled) setIsSuggesting(false);
         }
       })();
     }, 250);
-    return () => clearTimeout(timer);
-  }, [destinationQuery]);
-
-  const chooseSuggestion = useCallback(async (s: PlaceSuggestion) => {
-    const latlng = await resolvePlaceToLatLng(s.placeId);
-    if (!latlng) return;
-    setDestinationState(latlng);
-    setDestinationQuery(s.description);
-    setSuggestions([]);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [destinationQuery, destination]);
 
   const startNavigation = useCallback(async (): Promise<boolean> => {
     if (!destination) return false;
@@ -144,9 +148,7 @@ export function useNavigation() {
     setDestination,
     destinationQuery,
     setDestinationQuery,
-    suggestions,
     isSuggesting,
-    chooseSuggestion,
     waypoints,
     addWaypoint,
     generalRoute,

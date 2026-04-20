@@ -1,5 +1,12 @@
 {
+  "private": true,
+  "scripts": {
+    "capture-readme-screenshots": "node scripts/capture-readme-screenshots.mjs"
+  },
   "dependencies": {
     "expo-web-browser": "^55.0.14"
+  },
+  "devDependencies": {
+    "playwright": "^1.50.1"
   }
 }

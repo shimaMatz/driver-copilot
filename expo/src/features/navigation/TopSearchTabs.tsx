@@ -1,10 +1,15 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { TopSearchTab } from './routeFlowTypes';
-import { TD_ACCENT, TD_BG, TD_TEXT, TD_TEXT_MUTED } from './transitDarkTheme';
+import {
+  WF_BG,
+  WF_PRIMARY,
+  WF_TEXT,
+  WF_TEXT_MUTED,
+} from './wireframeTheme';
 
 const TOP_TABS: { key: TopSearchTab; label: string }[] = [
-  { key: 'search', label: '目的地検索' },
+  { key: 'editor', label: '経路' },
   { key: 'history', label: '検索履歴' },
   { key: 'favorites', label: 'お気に入り' },
 ];
@@ -51,17 +56,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingBottom: 6,
-    backgroundColor: TD_BG,
+    backgroundColor: WF_BG,
   },
   topTabHit: { flex: 1, alignItems: 'center', paddingVertical: 8 },
-  topTabText: { color: TD_TEXT_MUTED, fontSize: 20, fontWeight: '700' },
-  topTabTextOn: { color: TD_TEXT },
+  topTabText: { color: WF_TEXT_MUTED, fontSize: 15, fontWeight: '700' },
+  topTabTextOn: { color: WF_TEXT },
   topTabUnderline: {
     marginTop: 6,
-    height: 2,
-    width: 36,
-    backgroundColor: TD_ACCENT,
-    borderRadius: 1,
+    height: 3,
+    width: 56,
+    backgroundColor: WF_PRIMARY,
+    borderRadius: 2,
   },
-  topTabUnderlineHidden: { marginTop: 6, height: 2, width: 36 },
+  topTabUnderlineHidden: { marginTop: 6, height: 3, width: 56 },
 });

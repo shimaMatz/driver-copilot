@@ -14,7 +14,15 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TD_ACCENT, TD_BG, TD_SURFACE, TD_TEXT, TD_TEXT_MUTED } from './transitDarkTheme';
+import {
+  WF_BG,
+  WF_BORDER,
+  WF_CARD,
+  WF_PRIMARY,
+  WF_TAG_WORK,
+  WF_TEXT,
+  WF_TEXT_MUTED,
+} from './wireframeTheme';
 
 type SearchMode = 'destination' | 'waypoint';
 type SearchTab = 'all' | 'station' | 'address';
@@ -148,7 +156,7 @@ export function SearchBottomSheet({ visible, mode, onClose, onSelect }: Props): 
                 <TextInput
                   style={s.input}
                   placeholder="場所や住所など"
-                  placeholderTextColor={TD_TEXT_MUTED}
+                  placeholderTextColor={WF_TEXT_MUTED}
                   value={query}
                   onChangeText={setQuery}
                   autoFocus
@@ -225,14 +233,14 @@ export function SearchBottomSheet({ visible, mode, onClose, onSelect }: Props): 
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  root: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   backdrop: StyleSheet.absoluteFillObject,
   sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: TD_BG,
+    backgroundColor: WF_BG,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
@@ -242,41 +250,43 @@ const s = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#3A3A3C',
+    borderBottomColor: WF_BORDER,
   },
   handle: {
     width: 48,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#58595B',
+    backgroundColor: WF_BORDER,
     marginBottom: 10,
   },
-  title: { color: TD_TEXT, fontSize: 18, fontWeight: '800' },
+  title: { color: WF_TEXT, fontSize: 18, fontWeight: '800' },
   body: { flex: 1, padding: 20 },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   inputWrap: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: TD_SURFACE,
+    backgroundColor: WF_CARD,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: WF_BORDER,
     paddingHorizontal: 12,
     height: 44,
   },
   searchIcon: { fontSize: 16, marginRight: 8 },
-  input: { flex: 1, color: TD_TEXT, fontSize: 16 },
+  input: { flex: 1, color: WF_TEXT, fontSize: 16 },
   clearBtn: { padding: 8 },
-  clearText: { color: TD_TEXT_MUTED, fontSize: 18, fontWeight: '700' },
+  clearText: { color: WF_TEXT_MUTED, fontSize: 18, fontWeight: '700' },
   tabRow: {
     flexDirection: 'row',
     marginTop: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#3A3A3C',
+    borderBottomColor: WF_BORDER,
   },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10 },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: TD_ACCENT },
-  tabText: { color: TD_TEXT_MUTED, fontSize: 14, fontWeight: '600' },
-  tabTextActive: { color: TD_TEXT },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: WF_PRIMARY },
+  tabText: { color: WF_TEXT_MUTED, fontSize: 14, fontWeight: '600' },
+  tabTextActive: { color: WF_TEXT },
   list: { marginTop: 16 },
   listItem: {
     flexDirection: 'row',
@@ -284,10 +294,10 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#3A3A3C',
+    borderBottomColor: WF_BORDER,
   },
-  listText: { color: TD_TEXT, fontSize: 16 },
-  sectionTitle: { color: TD_TEXT_MUTED, fontSize: 13, fontWeight: '700', marginBottom: 4, marginTop: 8 },
-  star: { color: TD_TEXT_MUTED, fontSize: 22 },
-  starOn: { color: '#FFD60A' },
+  listText: { color: WF_TEXT, fontSize: 16 },
+  sectionTitle: { color: WF_TEXT_MUTED, fontSize: 13, fontWeight: '700', marginBottom: 4, marginTop: 8 },
+  star: { color: WF_TEXT_MUTED, fontSize: 22 },
+  starOn: { color: WF_TAG_WORK },
 });

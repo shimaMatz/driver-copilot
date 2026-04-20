@@ -15,5 +15,5 @@ export default function App(): React.JSX.Element {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#004d2e' },
+  root: { flex: 1, backgroundColor: '#F5F5F0' },
 });

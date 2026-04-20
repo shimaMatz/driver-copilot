@@ -3,13 +3,17 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { DirectionsRoute, RouteStep } from './navigationApiClient';
 import { formatDurationJa } from './routeSummary';
 import {
-  TD_ACCENT,
-  TD_BG,
-  TD_LINE_BLUE,
-  TD_SURFACE_ELEV,
-  TD_TEXT,
-  TD_TEXT_MUTED,
-} from './transitDarkTheme';
+  WF_BG,
+  WF_BORDER,
+  WF_CARD,
+  WF_LINE_CYAN,
+  WF_PRIMARY,
+  WF_SECTION_BG,
+  WF_TAG_WORK,
+  WF_TEXT,
+  WF_TEXT_MUTED,
+  WF_WHITE,
+} from './wireframeTheme';
 
 export type ProposalFilterTab = 'all' | 'fast' | 'easy' | 'cheap';
 
@@ -44,10 +48,10 @@ function pickDisplaySteps(steps: RouteStep[], max: number): RouteStep[] {
 }
 
 const BADGE_PALETTE: Array<{ bg: string; fg: string }> = [
-  { bg: '#F5D000', fg: '#111' },
-  { bg: '#0A84FF', fg: '#fff' },
-  { bg: '#BF5AF2', fg: '#fff' },
-  { bg: '#34C759', fg: '#111' },
+  { bg: WF_TAG_WORK, fg: '#111' },
+  { bg: WF_LINE_CYAN, fg: WF_WHITE },
+  { bg: WF_PRIMARY, fg: WF_WHITE },
+  { bg: '#CA8A04', fg: '#111' },
 ];
 
 function abbrForStep(step: RouteStep, index: number): string {
@@ -108,7 +112,7 @@ function ProposalCapsuleColumn({
                   <View
                     style={[
                       styles.connector,
-                      { backgroundColor: step.isToll ? TD_ACCENT : TD_LINE_BLUE },
+                      { backgroundColor: step.isToll ? WF_PRIMARY : WF_LINE_CYAN },
                     ]}
                   />
                 ) : null}
@@ -128,17 +132,17 @@ function ProposalCapsuleColumn({
       </Text>
       <View style={styles.badgeRow}>
         {column.badges.includes('安') ? (
-          <View style={[styles.roundBadge, { backgroundColor: '#FF9F0A' }]}>
-            <Text style={styles.roundBadgeText}>安</Text>
+          <View style={[styles.roundBadge, { backgroundColor: WF_TAG_WORK }]}>
+            <Text style={[styles.roundBadgeText, { color: '#111' }]}>安</Text>
           </View>
         ) : null}
         {column.badges.includes('楽') ? (
-          <View style={[styles.roundBadge, { backgroundColor: TD_ACCENT }]}>
-            <Text style={[styles.roundBadgeText, { color: '#000' }]}>楽</Text>
+          <View style={[styles.roundBadge, { backgroundColor: WF_PRIMARY }]}>
+            <Text style={[styles.roundBadgeText, { color: WF_WHITE }]}>楽</Text>
           </View>
         ) : null}
         {column.badges.includes('早') ? (
-          <View style={[styles.roundBadge, { backgroundColor: TD_LINE_BLUE }]}>
+          <View style={[styles.roundBadge, { backgroundColor: WF_LINE_CYAN }]}>
             <Text style={styles.roundBadgeText}>早</Text>
           </View>
         ) : null}
@@ -241,7 +245,7 @@ export function RouteProposalView({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: TD_BG },
+  root: { flex: 1, backgroundColor: WF_BG },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -249,10 +253,10 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   backBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  backGlyph: { color: TD_TEXT, fontSize: 36, fontWeight: '300', marginTop: -6 },
+  backGlyph: { color: WF_PRIMARY, fontSize: 36, fontWeight: '300', marginTop: -6 },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerRoute: { color: TD_TEXT, fontSize: 17, fontWeight: '800' },
-  headerSub: { color: TD_TEXT_MUTED, fontSize: 12, marginTop: 4, fontWeight: '600' },
+  headerRoute: { color: WF_TEXT, fontSize: 17, fontWeight: '800' },
+  headerSub: { color: WF_TEXT_MUTED, fontSize: 12, marginTop: 4, fontWeight: '600' },
   headerSpacer: { width: 44 },
   hScroll: {
     paddingHorizontal: 12,
@@ -266,13 +270,13 @@ const styles = StyleSheet.create({
   },
   colPressed: { opacity: 0.88 },
   colDurTop: {
-    color: TD_TEXT,
+    color: WF_TEXT,
     fontSize: 15,
     fontWeight: '800',
     textAlign: 'center',
   },
   colArriveTop: {
-    color: TD_TEXT,
+    color: WF_TEXT,
     fontSize: 13,
     fontWeight: '700',
     textAlign: 'center',
@@ -280,8 +284,10 @@ const styles = StyleSheet.create({
   },
   pill: {
     marginTop: 10,
-    backgroundColor: TD_SURFACE_ELEV,
+    backgroundColor: WF_CARD,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: WF_BORDER,
     paddingTop: 10,
     paddingBottom: 12,
     paddingHorizontal: 8,
@@ -289,13 +295,13 @@ const styles = StyleSheet.create({
   },
   startBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: TD_LINE_BLUE,
+    backgroundColor: WF_LINE_CYAN,
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 2,
     marginBottom: 8,
   },
-  startBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  startBadgeText: { color: WF_WHITE, fontSize: 10, fontWeight: '800' },
   pillInner: { flex: 1 },
   stepLineRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   lineBadge: {
@@ -308,7 +314,7 @@ const styles = StyleSheet.create({
   lineBadgeText: { fontSize: 11, fontWeight: '900' },
   stationName: {
     flex: 1,
-    color: TD_TEXT,
+    color: WF_TEXT,
     fontSize: 11,
     fontWeight: '600',
     lineHeight: 14,
@@ -325,21 +331,23 @@ const styles = StyleSheet.create({
   transferChip: {
     alignSelf: 'center',
     marginTop: 8,
-    backgroundColor: '#3A3A3C',
+    backgroundColor: WF_SECTION_BG,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: WF_BORDER,
   },
-  transferChipText: { color: TD_TEXT_MUTED, fontSize: 11, fontWeight: '700' },
+  transferChipText: { color: WF_TEXT_MUTED, fontSize: 11, fontWeight: '700' },
   footTime: {
-    color: TD_TEXT,
+    color: WF_TEXT,
     fontSize: 14,
     fontWeight: '800',
     textAlign: 'center',
     marginTop: 10,
   },
   footFare: {
-    color: TD_TEXT_MUTED,
+    color: WF_TEXT_MUTED,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
@@ -358,25 +366,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  roundBadgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  roundBadgeText: { color: WF_WHITE, fontSize: 12, fontWeight: '900' },
   filterBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 10,
     paddingHorizontal: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#3A3A3C',
-    backgroundColor: TD_BG,
+    borderTopColor: WF_BORDER,
+    backgroundColor: WF_BG,
   },
   filterItem: { alignItems: 'center', minWidth: 56 },
-  filterLabel: { color: TD_TEXT_MUTED, fontSize: 13, fontWeight: '700' },
-  filterLabelOn: { color: TD_ACCENT },
+  filterLabel: { color: WF_TEXT_MUTED, fontSize: 13, fontWeight: '700' },
+  filterLabelOn: { color: WF_PRIMARY },
   filterUnderline: {
     marginTop: 6,
     height: 3,
     width: 28,
     borderRadius: 2,
-    backgroundColor: TD_ACCENT,
+    backgroundColor: WF_PRIMARY,
   },
   filterUnderlineHidden: { marginTop: 6, height: 3, width: 28 },
 });
